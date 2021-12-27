@@ -12,16 +12,17 @@ from multiprocessing import Pool
 
 
 def csv2dict(anno_path, dataset_type):
+    print(anno_path)
     inputs_list = pandas.read_csv(anno_path)
     if dataset_type == 'train':
-        broken_data = [2390]
+        broken_data = []
         inputs_list.drop(broken_data, inplace=True)
-    inputs_list = (inputs_list.to_dict()['id|folder|signer|annotation'].values())
+    inputs_list = (inputs_list.to_dict()['name|video|start|end|speaker|orth|translation'].values())
     info_dict = dict()
     info_dict['prefix'] = anno_path.rsplit("/", 3)[0] + "/features/fullFrame-210x260px"
     print(f"Generate information dict from {anno_path}")
     for file_idx, file_info in tqdm(enumerate(inputs_list), total=len(inputs_list)):
-        fileid, folder, signer, label = file_info.split("|")
+        fileid, folder, start, end, signer, label, translation = file_info.split("|")
         num_frames = len(glob.glob(f"{info_dict['prefix']}/{dataset_type}/{folder}"))
         info_dict[file_idx] = {
             'fileid': fileid,
@@ -30,6 +31,7 @@ def csv2dict(anno_path, dataset_type):
             'label': label,
             'num_frames': num_frames,
             'original_info': file_info,
+            'translation': translation,
         }
     return info_dict
 
@@ -93,7 +95,7 @@ if __name__ == '__main__':
                         help='save prefix')
     parser.add_argument('--dataset-root', type=str, default='../dataset/phoenix2014/phoenix-2014-multisigner',
                         help='path to the dataset')
-    parser.add_argument('--annotation-prefix', type=str, default='annotations/manual/{}.corpus.csv',
+    parser.add_argument('--annotation-prefix', type=str, default='annotations/manual/PHOENIX-2014-T.{}.corpus.csv',
                         help='annotation prefix')
     parser.add_argument('--output-res', type=str, default='256x256px',
                         help='resize resolution for image sequence')
@@ -116,14 +118,14 @@ if __name__ == '__main__':
         # generate groudtruth stm for evaluation
         generate_gt_stm(information, f"./{args.dataset}/{args.dataset}-groundtruth-{md}.stm")
         # # resize images
-        # video_index = np.arange(len(information) - 1)
-        # print(f"Resize image to {args.output_res}")
-        # if args.process_image:
-        #     if args.multiprocessing:
-        #         run_mp_cmd(10, partial(resize_dataset, dsize=args.output_res, info_dict=information), video_index)
-        #     else:
-        #         for idx in tqdm(video_index):
-        #             run_cmd(partial(resize_dataset, dsize=args.output_res, info_dict=information), idx)
+        video_index = np.arange(len(information) - 1)
+        print(f"Resize image to {args.output_res}")
+        if args.process_image:
+            if args.multiprocessing:
+                run_mp_cmd(10, partial(resize_dataset, dsize=args.output_res, info_dict=information), video_index)
+            else:
+                for idx in tqdm(video_index):
+                    run_cmd(partial(resize_dataset, dsize=args.output_res, info_dict=information), idx)
     sign_dict = sorted(sign_dict.items(), key=lambda d: d[0])
     save_dict = {}
     for idx, (key, value) in enumerate(sign_dict):
