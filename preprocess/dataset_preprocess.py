@@ -43,6 +43,12 @@ def generate_gt_stm(info, save_path):
                 continue
             f.writelines(f"{v['fileid']} 1 {v['signer']} 0.0 1.79769e+308 {v['label']}\n")
 
+def generate_gt_sentence(info, save_path):
+    with open(save_path, "w") as f:
+        for k, v in info.items():
+            if not isinstance(k, int):
+                continue
+            f.writelines(f"{v['fileid']} 1 {v['signer']} 0.0 1.79769e+308 {v['translation']}\n")
 
 def sign_dict_update(total_dict, info):
     for k, v in info.items():
@@ -56,6 +62,17 @@ def sign_dict_update(total_dict, info):
                 total_dict[gloss] += 1
     return total_dict
 
+def vocab_dict_update(total_dict, info):
+    for k, v in info.items():
+        if not isinstance(k, int):
+            continue
+        split_label = v['translation'].split()
+        for gloss in split_label:
+            if gloss not in total_dict.keys():
+                total_dict[gloss] = 1
+            else:
+                total_dict[gloss] += 1
+    return total_dict
 
 def resize_img(img_path, dsize='210x260px'):
     dsize = tuple(int(res) for res in re.findall("\d+", dsize))
@@ -107,6 +124,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     mode = ["dev", "test", "train"]
     sign_dict = dict()
+    vocab_dict = dict()
     if not os.path.exists(f"./{args.dataset}"):
         os.makedirs(f"./{args.dataset}")
     for md in mode:
@@ -115,19 +133,29 @@ if __name__ == '__main__':
         np.save(f"./{args.dataset}/{md}_info.npy", information)
         # update the total gloss dict
         sign_dict_update(sign_dict, information)
+        # update the total vocab dict
+        vocab_dict_update(vocab_dict, information)
         # generate groudtruth stm for evaluation
         generate_gt_stm(information, f"./{args.dataset}/{args.dataset}-groundtruth-{md}.stm")
+        # generate groudtruth sentence stm for evaluation
+        generate_gt_sentence(information, f"./{args.dataset}/{args.dataset}-groundtruth-sentence-{md}.stm")
         # # resize images
-        video_index = np.arange(len(information) - 1)
-        print(f"Resize image to {args.output_res}")
-        if args.process_image:
-            if args.multiprocessing:
-                run_mp_cmd(10, partial(resize_dataset, dsize=args.output_res, info_dict=information), video_index)
-            else:
-                for idx in tqdm(video_index):
-                    run_cmd(partial(resize_dataset, dsize=args.output_res, info_dict=information), idx)
+        # video_index = np.arange(len(information) - 1)
+        # print(f"Resize image to {args.output_res}")
+        # if args.process_image:
+        #     if args.multiprocessing:
+        #         run_mp_cmd(10, partial(resize_dataset, dsize=args.output_res, info_dict=information), video_index)
+        #     else:
+        #         for idx in tqdm(video_index):
+        #             run_cmd(partial(resize_dataset, dsize=args.output_res, info_dict=information), idx)
     sign_dict = sorted(sign_dict.items(), key=lambda d: d[0])
+    vocab_dict = sorted(vocab_dict.items(), key=lambda d: d[0])
+    
     save_dict = {}
+    save_vocab_dict = {}
     for idx, (key, value) in enumerate(sign_dict):
         save_dict[key] = [idx + 1, value]
+    for idx, (key, value) in enumerate(vocab_dict):
+        save_vocab_dict[key] = [idx + 1, value]
     np.save(f"./{args.dataset}/gloss_dict.npy", save_dict)
+    np.save(f"./{args.dataset}/vocab_dict.npy", save_vocab_dict)

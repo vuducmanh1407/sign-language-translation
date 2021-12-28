@@ -29,6 +29,7 @@ class Processor():
         self.dataset = {}
         self.data_loader = {}
         self.gloss_dict = np.load(self.arg.dataset_info['dict_path'], allow_pickle=True).item()
+        self.vocab_dict = np.load(self.arg.dataset_info['vocab_path'], allow_pickle=True).item()
         self.arg.model_args['num_classes'] = len(self.gloss_dict) + 1
         self.model, self.optimizer = self.loading()
 
@@ -211,4 +212,4 @@ if __name__ == '__main__':
         args.dataset_info = yaml.load(f, Loader=yaml.FullLoader)
     processor = Processor(args)
     utils.pack_code("./", args.work_dir)
-    processor.start()
+    # processor.start()
