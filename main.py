@@ -1,5 +1,7 @@
 import os
 
+from preprocess.dataset_preprocess import vocab_dict_update
+
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 import pdb
 import sys
@@ -31,6 +33,7 @@ class Processor():
         self.gloss_dict = np.load(self.arg.dataset_info['dict_path'], allow_pickle=True).item()
         self.vocab_dict = np.load(self.arg.dataset_info['vocab_path'], allow_pickle=True).item()
         self.arg.model_args['num_classes'] = len(self.gloss_dict) + 1
+        self.arg.model_args['vocab_num_classes'] = len(self.vocab_dict) + 2
         self.model, self.optimizer = self.loading()
 
     def start(self):
@@ -169,7 +172,7 @@ class Processor():
             arg["prefix"] = self.arg.dataset_info['dataset_root']
             arg["mode"] = mode.split("_")[0]
             arg["transform_mode"] = train_flag
-            self.dataset[mode] = self.feeder(gloss_dict=self.gloss_dict, **arg)
+            self.dataset[mode] = self.feeder(gloss_dict=self.gloss_dict, vocab_dict=self.vocab_dict, **arg)
             self.data_loader[mode] = self.build_dataloader(self.dataset[mode], mode, train_flag)
         print("Loading data finished.")
 

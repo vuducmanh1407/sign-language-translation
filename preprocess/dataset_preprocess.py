@@ -23,6 +23,7 @@ def csv2dict(anno_path, dataset_type):
     print(f"Generate information dict from {anno_path}")
     for file_idx, file_info in tqdm(enumerate(inputs_list), total=len(inputs_list)):
         fileid, folder, start, end, signer, label, translation = file_info.split("|")
+        folder.replace('/1/','/')
         num_frames = len(glob.glob(f"{info_dict['prefix']}/{dataset_type}/{folder}"))
         info_dict[file_idx] = {
             'fileid': fileid,
@@ -148,6 +149,7 @@ if __name__ == '__main__':
         #     else:
         #         for idx in tqdm(video_index):
         #             run_cmd(partial(resize_dataset, dsize=args.output_res, info_dict=information), idx)
+        print(len(vocab_dict))
     sign_dict = sorted(sign_dict.items(), key=lambda d: d[0])
     vocab_dict = sorted(vocab_dict.items(), key=lambda d: d[0])
     
@@ -157,5 +159,6 @@ if __name__ == '__main__':
         save_dict[key] = [idx + 1, value]
     for idx, (key, value) in enumerate(vocab_dict):
         save_vocab_dict[key] = [idx + 1, value]
+
     np.save(f"./{args.dataset}/gloss_dict.npy", save_dict)
     np.save(f"./{args.dataset}/vocab_dict.npy", save_vocab_dict)

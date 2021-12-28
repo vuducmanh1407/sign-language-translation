@@ -24,12 +24,13 @@ sys.path.append("..")
 
 
 class BaseFeeder(data.Dataset):
-    def __init__(self, prefix, gloss_dict, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
+    def __init__(self, prefix, gloss_dict, vocab_dict, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
                  datatype="lmdb"):
         self.mode = mode
         self.ng = num_gloss
         self.prefix = prefix
         self.dict = gloss_dict
+        self.vocab_dict = vocab_dict
         self.data_type = datatype
         self.feat_prefix = f"{prefix}/features/fullFrame-256x256px/{mode}"
         self.transform_mode = "train" if transform_mode else "test"
@@ -43,10 +44,10 @@ class BaseFeeder(data.Dataset):
 
     def __getitem__(self, idx):
         if self.data_type == "video":
-            input_data, label, fi = self.read_video(idx)
+            input_data, label, translation, fi = self.read_video(idx)
             input_data, label = self.normalize(input_data, label)
             # input_data, label = self.normalize(input_data, label, fi['fileid'])
-            return input_data, torch.LongTensor(label), self.inputs_list[idx]['original_info']
+            return input_data, torch.LongTensor(label), torch.LongTensor(translation), self.inputs_list[idx]['original_info']
         elif self.data_type == "lmdb":
             input_data, label, fi = self.read_lmdb(idx)
             input_data, label = self.normalize(input_data, label)
@@ -61,12 +62,18 @@ class BaseFeeder(data.Dataset):
         img_folder = os.path.join(self.prefix, "features/fullFrame-256x256px/" + fi['folder'])
         img_list = sorted(glob.glob(img_folder))
         label_list = []
+        translation_list = []
         for phase in fi['label'].split(" "):
             if phase == '':
                 continue
             if phase in self.dict.keys():
                 label_list.append(self.dict[phase][0])
-        return [cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB) for img_path in img_list], label_list, fi
+        for phase in fi['translation'].split(" "):
+            if phase == '':
+                continue
+            if phase in self.vocab_dict.keys():
+                translation_list.append(self.vocab_dict[phase][0])        
+        return [cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB) for img_path in img_list], label_list, translation_list, fi
 
     def read_features(self, index):
         # load file info
@@ -110,8 +117,8 @@ class BaseFeeder(data.Dataset):
 
     @staticmethod
     def collate_fn(batch):
-        batch = [item for item in sorted(batch, key=lambda x: len(x[0]), reverse=True)]
-        video, label, info = list(zip(*batch))
+        batch = [item for item in sorted(batch, key=lambda x: len(x[0]), reverse=True)] # sorted with video length
+        video, label, translation, info = list(zip(*batch))
         if len(video[0].shape) > 3:
             max_len = len(video[0])
             video_length = torch.LongTensor([np.ceil(len(vid) / 4.0) * 4 + 12 for vid in video])
@@ -139,6 +146,7 @@ class BaseFeeder(data.Dataset):
                 for vid in video]
             padded_video = torch.stack(padded_video).permute(0, 2, 1)
         label_length = torch.LongTensor([len(lab) for lab in label])
+        translation_length = torch.LongTensor([len(trans) for trans in translation])
         if max(label_length) == 0:
             return padded_video, video_length, [], [], info
         else:
@@ -146,7 +154,11 @@ class BaseFeeder(data.Dataset):
             for lab in label:
                 padded_label.extend(lab)
             padded_label = torch.LongTensor(padded_label)
-            return padded_video, video_length, padded_label, label_length, info
+            padded_translation = []
+            for trans in translation:
+                padded_translation.extend(trans)
+            padded_translation = torch.LongTensor(padded_translation)
+            return padded_video, video_length, padded_label, label_length, padded_translation, translation_length, info
 
     def __len__(self):
         return len(self.inputs_list) - 1
