@@ -215,4 +215,4 @@ if __name__ == '__main__':
         args.dataset_info = yaml.load(f, Loader=yaml.FullLoader)
     processor = Processor(args)
     utils.pack_code("./", args.work_dir)
-    # processor.start()
+    processor.start()

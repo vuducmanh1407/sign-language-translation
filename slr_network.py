@@ -20,13 +20,14 @@ class Identity(nn.Module):
 
 
 class SLRModel(nn.Module):
-    def __init__(self, num_classes, c2d_type, conv_type, use_bn=False, tm_type='BiLSTM',
+    def __init__(self, num_classes, vocab_num_classes, c2d_type, conv_type, use_bn=False, tm_type='BiLSTM',
                  hidden_size=1024, gloss_dict=None, loss_weights=None):
         super(SLRModel, self).__init__()
         self.decoder = None
         self.loss = dict()
         self.criterion_init()
         self.num_classes = num_classes
+        self.vocab_num_classes = vocab_num_classes
         self.loss_weights = loss_weights
         self.conv2d = getattr(models, c2d_type)(pretrained=True)
         self.conv2d.fc = Identity()
