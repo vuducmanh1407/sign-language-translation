@@ -1,0 +1,87 @@
+batch_size: 2
+config: ./configs/model.yaml
+dataset: phoenix14
+dataset_info:
+  dataset_root: ./dataset/phoenix2014/phoenix-2014-multisigner
+  dict_path: ./preprocess/phoenix2014t/gloss_dict.npy
+  evaluation_dir: ./evaluation/slr_eval
+  evaluation_prefix: phoenix2014-groundtruth
+  vocab_path: ./preprocess/phoenix2014t/vocab_dict.npy
+decode_mode: beam
+device: '0'
+eval_interval: 1
+evaluate_tool: python
+feeder: dataset.dataloader_video.BaseFeeder
+feeder_args:
+  datatype: video
+  drop_ratio: 1.0
+  mode: train
+  num_gloss: -1
+ignore_weights: []
+load_checkpoints: null
+load_weights: resnet18_slr_pretrained_distill25.pt
+log_interval: 50
+loss_weights:
+  ConvCTC: 1.0
+  Dist: 25.0
+  SeqCTC: 1.0
+  recognition_loss_weight: 1.0
+  translation_loss_weight: 1.0
+model: slt_vac.SLTVACModel
+model_args:
+  c2d_type: resnet18
+  conv_type: 2
+  decoder:
+    dropout: 0.1
+    embeddings:
+      activation_type: softsign
+      dropout: 0.1
+      embedding_dim: 512
+      norm_type: batch
+      scale: false
+    ff_size: 2048
+    hidden_size: 512
+    num_heads: 8
+    num_layers: 3
+    type: transformer
+  encoder:
+    dropout: 0.1
+    embeddings:
+      activation_type: softsign
+      dropout: 0.1
+      embedding_dim: 512
+      norm_type: batch
+      scale: false
+    ff_size: 2048
+    hidden_size: 512
+    num_heads: 8
+    num_layers: 3
+    type: transformer
+  initializer:
+    bias_initializer: zeros
+    embed_init_gain: 1.0
+    embed_initializer: xavier
+    init_gain: 1.0
+    initializer: xavier
+    tied_softmax: false
+  num_classes: 1296
+  use_bn: 1
+num_epoch: 80
+num_worker: 4
+optimizer_args:
+  base_lr: 0.0001
+  learning_ratio: 1
+  nesterov: false
+  optimizer: Adam
+  start_epoch: 0
+  step:
+  - 40
+  - 60
+  weight_decay: 0.0001
+phase: test
+print_log: true
+random_fix: true
+random_seed: 0
+save_interval: 5
+test_batch_size: 8
+work_dir: ./work_dir/baseline_res18/
