@@ -9,7 +9,8 @@ import numpy as np
 from tqdm import tqdm
 from functools import partial
 from multiprocessing import Pool
-
+import fasttext.util
+# fasttext.util.download_model('de', if_exists='ignore')  # German word embedding
 
 def csv2dict(anno_path, dataset_type):
     print(anno_path)
@@ -109,9 +110,9 @@ def run_cmd(func, args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Data process for Visual Alignment Constraint for Continuous Sign Language Recognition.')
-    parser.add_argument('--dataset', type=str, default='phoenix2014',
+    parser.add_argument('--dataset', type=str, default='phoenix2014t',
                         help='save prefix')
-    parser.add_argument('--dataset-root', type=str, default='../dataset/phoenix2014/phoenix-2014-multisigner',
+    parser.add_argument('--dataset-root', type=str, default='../dataset',
                         help='path to the dataset')
     parser.add_argument('--annotation-prefix', type=str, default='annotations/manual/PHOENIX-2014-T.{}.corpus.csv',
                         help='annotation prefix')
@@ -149,16 +150,31 @@ if __name__ == '__main__':
         #     else:
         #         for idx in tqdm(video_index):
         #             run_cmd(partial(resize_dataset, dsize=args.output_res, info_dict=information), idx)
-        print(len(vocab_dict))
+        
     sign_dict = sorted(sign_dict.items(), key=lambda d: d[0])
     vocab_dict = sorted(vocab_dict.items(), key=lambda d: d[0])
     
     save_dict = {}
     save_vocab_dict = {}
+
+    word_embedding = {}
+    ft = fasttext.load_model('cc.de.300.bin')
+
     for idx, (key, value) in enumerate(sign_dict):
         save_dict[key] = [idx + 1, value]
-    for idx, (key, value) in enumerate(vocab_dict):
-        save_vocab_dict[key] = [idx + 1, value]
 
+    for idx, (key, value) in enumerate(vocab_dict):
+        save_vocab_dict[key] = idx + 4
+        word_embedding[idx + 4] = ft.get_word_vector(key) #vector
+
+    save_vocab_dict['<unk>'] = 0
+    save_vocab_dict['<pad>'] = 1
+    save_vocab_dict['<s>'] = 2
+    save_vocab_dict['</s>'] = 3
+    
+    save_vocab_dict_reverse = {value:key for key, value in save_vocab_dict.items()}
+    
     np.save(f"./{args.dataset}/gloss_dict.npy", save_dict)
     np.save(f"./{args.dataset}/vocab_dict.npy", save_vocab_dict)
+    np.save(f"./{args.dataset}/vocab_dict_reverse.npy", save_vocab_dict_reverse)
+    np.save(f"./{args.dataset}/word_embedding_fasttext.npy", word_embedding)

@@ -12,13 +12,34 @@ from modules import BiLSTM, BiLSTMLayer, TemporalConv
 from signjoey.encoders import TransformerEncoder
 from signjoey.decoders import TransformerDecoder, RecurrentDecoder
 
-def make_mask(lgt):
+def make_src_mask(lgt):
     batch_len = len(lgt)
     mask = torch.zeros([batch_len, lgt[0]], dtype=int)
     for idx, l in enumerate(lgt):
         for i in range(l):
             mask[idx][i] = 1
     return mask.unsqueeze(1)
+
+def make_txt_mask(lgt):
+    """
+        Create text mask from a sequence of length (not necessarily sorted)
+        Input:
+        lgt: sequence of length ([3,4,1,2...]): 1d Tensor
+
+        Output:
+        A 3 dimension Tensor of mask [B, M, M] with B is mini-batch length,
+
+    """
+    m = torch.max(lgt)
+    txt_mask = []
+    for _, l in enumerate(lgt):
+        msk = torch.zeros((m,m), dtype=bool)
+        for i in range(l):
+            for j in range(i+1):
+                msk[i][j] = True
+        txt_mask.append(msk.unsqueeze(0))
+    
+    return torch.cat(txt_mask, dim=0)
 
 class Identity(nn.Module):
     def __init__(self):
@@ -89,9 +110,10 @@ class SLTVACModel(nn.Module):
                                               num_layers=2, bidirectional=True)
         elif tm_type == "Transformers":
             self.temporal_model = TransformerEncoder(hidden_size=hidden_size)
+
         if decoder_type == "BILSTM":
             self.decoder_model = BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
-                                              num_layers=2, bidirectional=True)
+                                                      num_layers=2, bidirectional=True)
         elif decoder_type == "Transformers":
             self.decoder_model = TransformerDecoder(hidden_size=hidden_size)
 
@@ -112,7 +134,7 @@ class SLTVACModel(nn.Module):
                        for idx, lgt in enumerate(len_x)])
         return x
 
-    def forward(self, x, len_x, label=None, label_lgt=None):
+    def forward(self, x, len_x, sentence, sentence_len, label=None, label_lgt=None):
         if len(x.shape) == 5:
             # videos
             batch, temp, channel, height, width = x.shape
@@ -135,6 +157,10 @@ class SLTVACModel(nn.Module):
             pass
 
         outputs = self.classifier(tm_outputs['predictions'])
+
+        # Implement decoder
+        sentence_output = self.decoder_model(tm_outputs, sentence)
+
         pred = None if self.training \
             else self.recognition.decode(outputs, lgt, batch_first=False, probs=False)
         conv_pred = None if self.training \
@@ -194,7 +220,7 @@ class SLRModel(nn.Module):
                        for idx, lgt in enumerate(len_x)])
         return x
 
-    def forward(self, x, len_x, label=None, label_lgt=None):
+    def forward(self, x, len_x, sentence, sentence_len, label=None, label_lgt=None):
         if len(x.shape) == 5:
             # videos
             batch, temp, channel, height, width = x.shape
@@ -210,7 +236,13 @@ class SLRModel(nn.Module):
         x = conv1d_outputs['visual_feat']
         lgt = conv1d_outputs['feat_len']
         tm_outputs = self.temporal_model(x, lgt)
-        outputs = self.classifier(tm_outputs['predictions'])
+        if type(self.temporal_model) is BiLSTM:
+            outputs = self.classifier(tm_outputs['predictions'])
+        else:
+            outputs = self.classifier(tm_outputs.transpose(1,0))
+
+
+
         pred = None if self.training \
             else self.decoder.decode(outputs, lgt, batch_first=False, probs=False)
         conv_pred = None if self.training \
@@ -242,7 +274,12 @@ class SLRModel(nn.Module):
         x = conv1d_outputs['visual_feat']
         lgt = conv1d_outputs['feat_len']
         tm_outputs = self.temporal_model(x, lgt)
-        outputs = self.classifier(tm_outputs['predictions'])
+
+        if type(self.temporal_model) is BiLSTM:
+            outputs = self.classifier(tm_outputs['predictions'])
+        else:
+            outputs = self.classifier(tm_outputs.transpose(1,0))
+        
         pred = None if self.training \
             else self.decoder.decode(outputs, lgt, batch_first=False, probs=False)
         conv_pred = None if self.training \
@@ -280,13 +317,42 @@ class SLRModel(nn.Module):
         self.loss['distillation'] = SeqKD(T=8)
         return self.loss
 
+def subsequent_mask(size: int):
+    """
+    Mask out subsequent positions (to prevent attending to future positions)
+    Transformer helper function.
+
+    :param size: size of mask (2nd and 3rd dim)
+    :return: Tensor with 0s and 1s of shape (1, size, size)
+    """
+    mask = np.triu(np.ones((1, size, size)), k=1).astype("uint8")
+    return torch.from_numpy(mask) == 0
+
 if __name__ == "__main__":
     # x = torch.randn((3, 3, 3))
     # print(x)
     # x = ~x
     # print(x)
-    x = torch.randn((2, 30, 3))
-    lgt = torch.LongTensor([30,25])
-    print(make_mask(lgt).size())
+    # x = torch.randn((2, 30, 3))
+    # lgt = torch.LongTensor([30,25])
+    # print(make_mask(lgt).size())
     # model = SLRModel(1024,"resnet18",2,True)
     # preds = model(x,[130,125])
+    # m = torch.zeros((8, 8), dtype=bool)
+    # n = torch.ones((8, 8), dtype=bool)
+    # p = torch.cat([m.unsqueeze(0),n.unsqueeze(0)])
+    # print(p.size())
+    # print(p)
+    # for i in range(5):
+    #     for j in range(i+1):
+    #         m[i][j] = True
+    # print(m.size())
+    # a = [1,2,3,4]
+    # a = a[:-1]
+    # print(a)
+    # lgt = torch.LongTensor([3,5,4,7,2])
+    # txt_mask = make_txt_mask(lgt)
+    # print(txt_mask.size())
+
+    msk = subsequent_mask(6)
+    print(msk)

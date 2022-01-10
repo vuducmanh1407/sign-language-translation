@@ -1,5 +1,5 @@
 batch_size: 2
-config: ./configs/model.yaml
+config: ./configs/baseline.yaml
 dataset: phoenix14
 dataset_info:
   dataset_root: ./dataset/phoenix2014/phoenix-2014-multisigner
@@ -7,8 +7,35 @@ dataset_info:
   evaluation_dir: ./evaluation/slr_eval
   evaluation_prefix: phoenix2014-groundtruth
   vocab_path: ./preprocess/phoenix2014t/vocab_dict.npy
+  vocab_path_reverse: ./preprocess/phoenix2014t/vocab_dict_reverse.npy
 decode_mode: beam
-device: '0'
+decoder:
+  dropout: 0.1
+  embeddings:
+    activation_type: softsign
+    dropout: 0.1
+    embedding_dim: 512
+    norm_type: batch
+    scale: false
+  ff_size: 2048
+  hidden_size: 512
+  num_heads: 8
+  num_layers: 3
+  type: transformer
+device: 0,1,2
+encoder:
+  dropout: 0.1
+  embeddings:
+    activation_type: softsign
+    dropout: 0.1
+    embedding_dim: 512
+    norm_type: batch
+    scale: false
+  ff_size: 2048
+  hidden_size: 512
+  num_heads: 8
+  num_layers: 3
+  type: transformer
 eval_interval: 1
 evaluate_tool: python
 feeder: dataset.dataloader_video.BaseFeeder
@@ -18,8 +45,15 @@ feeder_args:
   mode: train
   num_gloss: -1
 ignore_weights: []
+initializer:
+  bias_initializer: zeros
+  embed_init_gain: 1.0
+  embed_initializer: xavier
+  init_gain: 1.0
+  initializer: xavier
+  tied_softmax: false
 load_checkpoints: null
-load_weights: resnet18_slr_pretrained_distill25.pt
+load_weights: null
 log_interval: 50
 loss_weights:
   ConvCTC: 1.0
@@ -31,43 +65,10 @@ model: slt_vac.SLTVACModel
 model_args:
   c2d_type: resnet18
   conv_type: 2
-  decoder:
-    dropout: 0.1
-    embeddings:
-      activation_type: softsign
-      dropout: 0.1
-      embedding_dim: 512
-      norm_type: batch
-      scale: false
-    ff_size: 2048
-    hidden_size: 512
-    num_heads: 8
-    num_layers: 3
-    type: transformer
-  encoder:
-    dropout: 0.1
-    embeddings:
-      activation_type: softsign
-      dropout: 0.1
-      embedding_dim: 512
-      norm_type: batch
-      scale: false
-    ff_size: 2048
-    hidden_size: 512
-    num_heads: 8
-    num_layers: 3
-    type: transformer
-  initializer:
-    bias_initializer: zeros
-    embed_init_gain: 1.0
-    embed_initializer: xavier
-    init_gain: 1.0
-    initializer: xavier
-    tied_softmax: false
   num_classes: 1296
   use_bn: 1
 num_epoch: 80
-num_worker: 4
+num_worker: 10
 optimizer_args:
   base_lr: 0.0001
   learning_ratio: 1
@@ -78,7 +79,7 @@ optimizer_args:
   - 40
   - 60
   weight_decay: 0.0001
-phase: test
+phase: train
 print_log: true
 random_fix: true
 random_seed: 0

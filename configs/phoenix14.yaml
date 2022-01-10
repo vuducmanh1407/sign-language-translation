@@ -3,3 +3,4 @@ dict_path: ./preprocess/phoenix2014t/gloss_dict.npy
 evaluation_dir: ./evaluation/slr_eval
 evaluation_prefix: phoenix2014-groundtruth
 vocab_path: ./preprocess/phoenix2014t/vocab_dict.npy
+vocab_path_reverse: ./preprocess/phoenix2014t/vocab_dict_reverse.npy

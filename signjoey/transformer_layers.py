@@ -45,7 +45,7 @@ class MultiHeadedAttention(nn.Module):
         :param k: keys   [B, M, D] with M being the sentence length.
         :param v: values [B, M, D]
         :param q: query  [B, M, D]
-        :param mask: optional mask [B, 1, M]
+        :param mask: optional mask [B, 1, M] or [B, M, M]
         :return:
         """
         batch_size = k.size(0)

@@ -9,7 +9,8 @@ import torch
 import random
 import pandas
 import warnings
-
+import fasttext.util
+import fasttext
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import numpy as np
@@ -22,6 +23,13 @@ from torch.utils.data.sampler import Sampler
 
 sys.path.append("..")
 
+def sentence_to_tensor(sentence):
+  model = fasttext.load_model('cc.de.300.bin')
+  result = []
+  for word in sentence:
+    result.append(list(model.get_word_vector(word)))
+  del model
+  return result
 
 class BaseFeeder(data.Dataset):
     def __init__(self, prefix, gloss_dict, vocab_dict, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
@@ -44,10 +52,10 @@ class BaseFeeder(data.Dataset):
 
     def __getitem__(self, idx):
         if self.data_type == "video":
-            input_data, label, translation, fi = self.read_video(idx)
+            input_data, label, translation, sentence_embedding, fi = self.read_video(idx)
             input_data, label = self.normalize(input_data, label)
             # input_data, label = self.normalize(input_data, label, fi['fileid'])
-            return input_data, torch.LongTensor(label), torch.LongTensor(translation), self.inputs_list[idx]['original_info']
+            return input_data, torch.LongTensor(label), torch.LongTensor(translation), torch.Tensor(sentence_embedding), self.inputs_list[idx]['original_info']
         elif self.data_type == "lmdb":
             input_data, label, fi = self.read_lmdb(idx)
             input_data, label = self.normalize(input_data, label)
@@ -62,7 +70,7 @@ class BaseFeeder(data.Dataset):
         img_folder = os.path.join(self.prefix, "features/fullFrame-256x256px/" + fi['folder'])
         img_list = sorted(glob.glob(img_folder))
         label_list = []
-        translation_list = []
+        translation_list = [2, ]
         for phase in fi['label'].split(" "):
             if phase == '':
                 continue
@@ -72,8 +80,13 @@ class BaseFeeder(data.Dataset):
             if phase == '':
                 continue
             if phase in self.vocab_dict.keys():
-                translation_list.append(self.vocab_dict[phase][0])        
-        return [cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB) for img_path in img_list], label_list, translation_list, fi
+                translation_list.append(self.vocab_dict[phase][0])
+        translation_list.append(3) 
+
+        # Create tensor
+        sentence_embedding = sentence_to_tensor(['<s>'] + fi['translation'].split(" "))
+           
+        return [cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB) for img_path in img_list], label_list, translation_list, sentence_embedding, fi
 
     def read_features(self, index):
         # load file info
@@ -118,7 +131,7 @@ class BaseFeeder(data.Dataset):
     @staticmethod
     def collate_fn(batch):
         batch = [item for item in sorted(batch, key=lambda x: len(x[0]), reverse=True)] # sorted with video length
-        video, label, translation, info = list(zip(*batch))
+        video, label, translation, word_vectors, info = list(zip(*batch))
         if len(video[0].shape) > 3:
             max_len = len(video[0])
             video_length = torch.LongTensor([np.ceil(len(vid) / 4.0) * 4 + 12 for vid in video])
@@ -146,9 +159,15 @@ class BaseFeeder(data.Dataset):
                 for vid in video]
             padded_video = torch.stack(padded_video).permute(0, 2, 1)
         label_length = torch.LongTensor([len(lab) for lab in label])
-        translation_length = torch.LongTensor([len(trans) for trans in translation])
+        translation_length = torch.LongTensor([len(trans) - 2 for trans in translation])
+        max_sentence_length = torch.max(translation_length) + 1
+        padded_translation_embedding = [torch.cat(
+            (vectors, )) 
+            for vectors in word_vectors]
+
+
         if max(label_length) == 0:
-            return padded_video, video_length, [], [], info
+            return padded_video, video_length, [], [], [], [], info
         else:
             padded_label = []
             for lab in label:
