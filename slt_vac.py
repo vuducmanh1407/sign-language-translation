@@ -119,17 +119,8 @@ class SLTVACModel(nn.Module):
             ]
         )
 
-        if decoder_type == "BILSTM":
-            self.decoder_module = nn.Sequential(
-            [
-                BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
-                                                      num_layers=2, bidirectional=True),
-                nn.Linear(hidden_size, vocab_num_classes),
-                nn.Softmax(dim=2)
-            ]
-        )
-        else:
-            self.decoder_module = TransformerDecoder(**decoder_arg, vocab_size=vocab_num_classes)
+
+        self.decoder_module = TransformerDecoder(**decoder_arg, vocab_size=vocab_num_classes)
 
         self.classifier = nn.Linear(hidden_size, self.num_classes)
         self.register_backward_hook(self.backward_hook)    
@@ -169,12 +160,12 @@ class SLTVACModel(nn.Module):
         if type(self.temporal_model) is BiLSTM:
             tm_outputs = self.temporal_model(x, lgt)
         else:
-            pass
+            tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, make_src_mask(lgt)), 0, 1)
 
         outputs = self.classifier(tm_outputs['predictions'])
 
         # Implement decoder
-        sentence_output = self.decoder_module(tm_outputs, sentence)
+        sentence_outputs = self.decoder_module(tm_outputs.transpose(0, 1), sentence, src_mask = make_src_mask(lgt), trg_mask = make_txt_mask(sentence_len))
 
         pred = None if self.training \
             else self.recognition.decode(outputs, lgt, batch_first=False, probs=False)
@@ -189,6 +180,7 @@ class SLTVACModel(nn.Module):
             "sequence_logits": outputs,
             "conv_sents": conv_pred,
             "recognized_sents": pred,
+            "sentence_logits": sentence_outputs
         }
 
     def criterion_init(self):
