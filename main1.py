@@ -32,8 +32,8 @@ class Processor():
         self.data_loader = {}
         self.gloss_dict = np.load(self.arg.dataset_info['dict_path'], allow_pickle=True).item()
         self.vocab_dict = np.load(self.arg.dataset_info['vocab_path'], allow_pickle=True).item()
+        self.word_embedding = np.load(self.arg.dataset_info['embedding_path'], allow_pickle=True).item()
         self.vocab_dict_reverse = {value:key for key, value in self.vocab_dict.items()}
-        print(self.vocab_dict_reverse)
         self.arg.model_args['num_classes'] = len(self.gloss_dict) + 1
         self.arg.model_args['vocab_num_classes'] = len(self.vocab_dict)
         self.model, self.optimizer = self.loading()

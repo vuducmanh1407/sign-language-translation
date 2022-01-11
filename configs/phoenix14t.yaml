@@ -1,7 +1,7 @@
 dataset_root: ./dataset/phoenix2014/phoenix-2014-multisigner
 dict_path: ./preprocess/phoenix2014t/gloss_dict.npy
 embedding_path: ./preprocess/phoenix2014t/word_embedding_fasttext.npy
-evaluation_dir: ./evaluation/slr_eval
+evaluation_dir: ./evaluation/slt_vac_eval
 evaluation_prefix: phoenix2014-groundtruth
 vocab_path: ./preprocess/phoenix2014t/vocab_dict.npy
 vocab_path_reverse: ./preprocess/phoenix2014t/vocab_dict_reverse.npy

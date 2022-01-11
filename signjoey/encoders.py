@@ -245,3 +245,6 @@ class TransformerEncoder(Encoder):
             len(self.layers),
             self.layers[0].src_src_att.num_heads,
         )
+
+if __name__ == "__main__":
+    model = TransformerEncoder()

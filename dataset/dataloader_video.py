@@ -9,8 +9,7 @@ import torch
 import random
 import pandas
 import warnings
-import fasttext.util
-import fasttext
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import numpy as np
@@ -23,16 +22,9 @@ from torch.utils.data.sampler import Sampler
 
 sys.path.append("..")
 
-def sentence_to_tensor(sentence):
-  model = fasttext.load_model('cc.de.300.bin')
-  result = []
-  for word in sentence:
-    result.append(list(model.get_word_vector(word)))
-  del model
-  return result
 
 class BaseFeeder(data.Dataset):
-    def __init__(self, prefix, gloss_dict, vocab_dict, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
+    def __init__(self, prefix, gloss_dict, vocab_dict, embedding, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
                  datatype="lmdb"):
         self.mode = mode
         self.ng = num_gloss
@@ -40,6 +32,7 @@ class BaseFeeder(data.Dataset):
         self.dict = gloss_dict
         self.vocab_dict = vocab_dict
         self.data_type = datatype
+        self.embedding = embedding
         self.feat_prefix = f"{prefix}/features/fullFrame-256x256px/{mode}"
         self.transform_mode = "train" if transform_mode else "test"
         self.inputs_list = np.load(f"./preprocess/phoenix2014/{mode}_info.npy", allow_pickle=True).item()
@@ -70,6 +63,7 @@ class BaseFeeder(data.Dataset):
         img_folder = os.path.join(self.prefix, "features/fullFrame-256x256px/" + fi['folder'])
         img_list = sorted(glob.glob(img_folder))
         label_list = []
+
         translation_list = [2, ]
         for phase in fi['label'].split(" "):
             if phase == '':
@@ -83,8 +77,10 @@ class BaseFeeder(data.Dataset):
                 translation_list.append(self.vocab_dict[phase][0])
         translation_list.append(3) 
 
+        sentence_embedding = []
         # Create tensor
-        sentence_embedding = sentence_to_tensor(['<s>'] + fi['translation'].split(" "))
+        for i in translation_list[:-1]: # Dont need to vectorize eos token
+            sentence_embedding.append(self.embedding[i])
            
         return [cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB) for img_path in img_list], label_list, translation_list, sentence_embedding, fi
 
@@ -158,13 +154,20 @@ class BaseFeeder(data.Dataset):
                 , dim=0)
                 for vid in video]
             padded_video = torch.stack(padded_video).permute(0, 2, 1)
+
         label_length = torch.LongTensor([len(lab) for lab in label])
+
         translation_length = torch.LongTensor([len(trans) - 2 for trans in translation])
+
         max_sentence_length = torch.max(translation_length) + 1
         padded_translation_embedding = [torch.cat(
-            (vectors, )) 
+            (
+            torch.Tensor(vectors),
+            torch.Tensor([vectors[-1],]).expand(max_sentence_length - len(vectors), -1)
+            ),
+            dim=0)
             for vectors in word_vectors]
-
+        padded_translation_embedding = torch.stack(padded_translation_embedding)
 
         if max(label_length) == 0:
             return padded_video, video_length, [], [], [], [], info
@@ -173,11 +176,13 @@ class BaseFeeder(data.Dataset):
             for lab in label:
                 padded_label.extend(lab)
             padded_label = torch.LongTensor(padded_label)
+
             padded_translation = []
             for trans in translation:
                 padded_translation.extend(trans)
             padded_translation = torch.LongTensor(padded_translation)
-            return padded_video, video_length, padded_label, label_length, padded_translation, translation_length, info
+
+            return padded_video, video_length, padded_label, label_length, padded_translation, translation_length, padded_translation_embedding, info
 
     def __len__(self):
         return len(self.inputs_list) - 1

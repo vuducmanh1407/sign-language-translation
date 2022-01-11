@@ -57,9 +57,10 @@ class SLTVACModel(nn.Module):
         c2d_type,
         conv_type,
         use_bn=False,
-        tm_type='BiLSTM',
+        encoder_type='BiLSTM',
         decoder_type='Transformers',
-        hidden_size=1024,
+        embedding_size='300',
+        hidden_size=512,
         gloss_dict=None,
         vocab_dict=None,
         encoder_arg=None,
@@ -105,17 +106,30 @@ class SLTVACModel(nn.Module):
                                    use_bn=use_bn,
                                    num_classes=num_classes)
         # self.recognition = utils.Decode(gloss_dict, num_classes, 'beam')
-        if tm_type == "BILSTM":
+        if encoder_type == "BILSTM":
             self.temporal_model = BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
                                               num_layers=2, bidirectional=True)
-        elif tm_type == "Transformers":
-            self.temporal_model = TransformerEncoder(hidden_size=hidden_size)
+        else:
+            self.temporal_model = TransformerEncoder(**encoder_arg)
+
+        self.embedding = nn.Sequential(
+            [
+                nn.Linear(embedding_size, hidden_size),
+                nn.Softmax(dim=2)
+            ]
+        )
 
         if decoder_type == "BILSTM":
-            self.decoder_model = BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
-                                                      num_layers=2, bidirectional=True)
-        elif decoder_type == "Transformers":
-            self.decoder_model = TransformerDecoder(hidden_size=hidden_size)
+            self.decoder_module = nn.Sequential(
+            [
+                BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
+                                                      num_layers=2, bidirectional=True),
+                nn.Linear(hidden_size, vocab_num_classes),
+                nn.Softmax(dim=2)
+            ]
+        )
+        else:
+            self.decoder_module = TransformerDecoder(**decoder_arg, vocab_size=vocab_num_classes)
 
         self.classifier = nn.Linear(hidden_size, self.num_classes)
         self.register_backward_hook(self.backward_hook)    
@@ -149,6 +163,7 @@ class SLTVACModel(nn.Module):
         # x: T, B, C
         x = conv1d_outputs['visual_feat']
         lgt = conv1d_outputs['feat_len']
+
         #To be implemented Transformer
 
         if type(self.temporal_model) is BiLSTM:
@@ -159,7 +174,7 @@ class SLTVACModel(nn.Module):
         outputs = self.classifier(tm_outputs['predictions'])
 
         # Implement decoder
-        sentence_output = self.decoder_model(tm_outputs, sentence)
+        sentence_output = self.decoder_module(tm_outputs, sentence)
 
         pred = None if self.training \
             else self.recognition.decode(outputs, lgt, batch_first=False, probs=False)
@@ -354,5 +369,9 @@ if __name__ == "__main__":
     # txt_mask = make_txt_mask(lgt)
     # print(txt_mask.size())
 
-    msk = subsequent_mask(6)
-    print(msk)
+    # msk = subsequent_mask(6)
+    # print(msk)
+    model = TransformerDecoder()
+    x = torch.randn((2, 30, 512))
+    out1, out2 = model(x)
+    print(out1.size)
