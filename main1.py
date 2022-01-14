@@ -27,7 +27,7 @@ class Processor():
         if self.arg.random_fix:
             self.rng = utils.RandomState(seed=self.arg.random_seed)
         self.device = utils.GpuDataParallel()
-        self.recoder = utils.Recorder(self.arg.work_dir, self.arg.print_log, self.arg.log_interval)
+        self.recorder = utils.Recorder(self.arg.work_dir, self.arg.print_log, self.arg.log_interval)
         self.dataset = {}
         self.data_loader = {}
         self.gloss_dict = np.load(self.arg.dataset_info['dict_path'], allow_pickle=True).item()
@@ -40,18 +40,18 @@ class Processor():
 
     def start(self):
         if self.arg.phase == 'train':
-            self.recoder.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
+            self.recorder.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
             seq_model_list = []
             for epoch in range(self.arg.optimizer_args['start_epoch'], self.arg.num_epoch):
                 save_model = epoch % self.arg.save_interval == 0
                 eval_model = epoch % self.arg.eval_interval == 0
                 # train end2end model
                 seq_train(self.data_loader['train'], self.model, self.optimizer,
-                          self.device, epoch, self.recoder)
+                          self.device, epoch, self.recorder)
                 if eval_model:
                     dev_wer = seq_eval(self.arg, self.data_loader['dev'], self.model, self.device,
-                                       'dev', epoch, self.arg.work_dir, self.recoder, self.arg.evaluate_tool)
-                    self.recoder.print_log("Dev WER: {:05.2f}%".format(dev_wer))
+                                       'dev', epoch, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
+                    self.recorder.print_log("Dev WER: {:05.2f}%".format(dev_wer))
                 if save_model:
                     model_path = "{}dev_{:05.2f}_epoch{}_model.pt".format(self.arg.work_dir, dev_wer, epoch)
                     seq_model_list.append(model_path)
@@ -60,20 +60,20 @@ class Processor():
         elif self.arg.phase == 'test':
             if self.arg.load_weights is None and self.arg.load_checkpoints is None:
                 raise ValueError('Please appoint --load-weights.')
-            self.recoder.print_log('Model:   {}.'.format(self.arg.model))
-            self.recoder.print_log('Weights: {}.'.format(self.arg.load_weights))
+            self.recorder.print_log('Model:   {}.'.format(self.arg.model))
+            self.recorder.print_log('Weights: {}.'.format(self.arg.load_weights))
             # train_wer = seq_eval(self.arg, self.data_loader["train_eval"], self.model, self.device,
-            #                      "train", 6667, self.arg.work_dir, self.recoder, self.arg.evaluate_tool)
+            #                      "train", 6667, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
             dev_wer = seq_eval(self.arg, self.data_loader["dev"], self.model, self.device,
-                               "dev", 6667, self.arg.work_dir, self.recoder, self.arg.evaluate_tool)
+                               "dev", 6667, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
             test_wer = seq_eval(self.arg, self.data_loader["test"], self.model, self.device,
-                                "test", 6667, self.arg.work_dir, self.recoder, self.arg.evaluate_tool)
-            self.recoder.print_log('Evaluation Done.\n')
+                                "test", 6667, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
+            self.recorder.print_log('Evaluation Done.\n')
         elif self.arg.phase == "features":
             for mode in ["train", "dev", "test"]:
                 seq_feature_generation(
                     self.data_loader[mode + "_eval" if mode == "train" else mode],
-                    self.model, self.device, mode, self.arg.work_dir, self.recoder
+                    self.model, self.device, mode, self.arg.work_dir, self.recorder
                 )
         elif self.arg.phase == "inference": # inference phase 
             if self.arg.load_weights is None and self.arg.load_checkpoints is None:
@@ -166,7 +166,7 @@ class Processor():
             optimizer.scheduler.load_state_dict(state_dict["scheduler_state_dict"])
 
         self.arg.optimizer_args['start_epoch'] = state_dict["epoch"] + 1
-        self.recoder.print_log("Resuming from checkpoint: epoch {self.arg.optimizer_args['start_epoch']}")
+        self.recorder.print_log("Resuming from checkpoint: epoch {self.arg.optimizer_args['start_epoch']}")
 
     def load_data(self):
         print("Loading data")

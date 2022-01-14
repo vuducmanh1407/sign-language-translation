@@ -22,7 +22,8 @@ def seq_train(loader, model, optimizer, device, epoch_idx, recoder):
         label_lgt = device.data_to_device(data[3])
         translation = device.data_to_device(data[4])
         translation_lgt = device.data_to_device(data[5])
-        ret_dict = model(vid, vid_lgt, label=label, label_lgt=label_lgt)
+        word_embedding = device.data_to_device(data[6])
+        ret_dict = model(vid, vid_lgt, word_embedding, translation_lgt)
         loss = model.criterion_calculation(ret_dict, label, label_lgt)
         if np.isinf(loss.item()) or np.isnan(loss.item()):
             print(data[-1])

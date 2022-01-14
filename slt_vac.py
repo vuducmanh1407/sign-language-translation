@@ -1,5 +1,6 @@
 import pdb
 import copy
+from signjoey.vocabulary import PAD_ID
 import utils
 import torch
 import types
@@ -57,15 +58,15 @@ class SLTVACModel(nn.Module):
         c2d_type,
         conv_type,
         use_bn=False,
-        encoder_type='BiLSTM',
-        decoder_type='Transformers',
+        encoder_type='Transformers',
         embedding_size='300',
         hidden_size=512,
         gloss_dict=None,
         vocab_dict=None,
         encoder_arg=None,
         decoder_arg=None,
-        loss_weights=None
+        loss_weights=None,
+        phase="train"
     ):
 
         """
@@ -123,7 +124,8 @@ class SLTVACModel(nn.Module):
         self.decoder_module = TransformerDecoder(**decoder_arg, vocab_size=vocab_num_classes)
 
         self.classifier = nn.Linear(hidden_size, self.num_classes)
-        self.register_backward_hook(self.backward_hook)    
+        self.register_backward_hook(self.backward_hook)   
+        self.phase = phase 
 
     def backward_hook(self, module, grad_input, grad_output):
         for g in grad_input:
@@ -139,7 +141,7 @@ class SLTVACModel(nn.Module):
                        for idx, lgt in enumerate(len_x)])
         return x
 
-    def forward(self, x, len_x, sentence, sentence_len, label=None, label_lgt=None):
+    def forward(self, x, len_x, sentence, sentence_len):
         if len(x.shape) == 5:
             # videos
             batch, temp, channel, height, width = x.shape
@@ -155,7 +157,7 @@ class SLTVACModel(nn.Module):
         x = conv1d_outputs['visual_feat']
         lgt = conv1d_outputs['feat_len']
 
-        #To be implemented Transformer
+        # Encoder
 
         if type(self.temporal_model) is BiLSTM:
             tm_outputs = self.temporal_model(x, lgt)
@@ -165,12 +167,17 @@ class SLTVACModel(nn.Module):
         outputs = self.classifier(tm_outputs['predictions'])
 
         # Implement decoder
-        sentence_outputs = self.decoder_module(tm_outputs.transpose(0, 1), sentence, src_mask = make_src_mask(lgt), trg_mask = make_txt_mask(sentence_len))
+        sentence_outputs, _, _, _ = self.decoder_module(
+            tm_outputs.transpose(0, 1),
+            sentence,
+            src_mask = make_src_mask(lgt),
+            trg_mask = make_txt_mask([l - 1 for l in sentence_len])
+        )
 
-        pred = None if self.training \
-            else self.recognition.decode(outputs, lgt, batch_first=False, probs=False)
-        conv_pred = None if self.training \
-            else self.recognition.decode(conv1d_outputs['conv_logits'], lgt, batch_first=False, probs=False)
+        # pred = None if self.training \
+        #     else self.recognition.decode(outputs, lgt, batch_first=False, probs=False)
+        # conv_pred = None if self.training \
+        #     else self.recognition.decode(conv1d_outputs['conv_logits'], lgt, batch_first=False, probs=False)
 
         return {
             "framewise_features": framewise,
@@ -178,129 +185,14 @@ class SLTVACModel(nn.Module):
             "feat_len": lgt,
             "conv_logits": conv1d_outputs['conv_logits'],
             "sequence_logits": outputs,
-            "conv_sents": conv_pred,
-            "recognized_sents": pred,
-            "sentence_logits": sentence_outputs
+            "sentence_logits": sentence_outputs,
         }
 
     def criterion_init(self):
         self.loss['CTCLoss'] = torch.nn.CTCLoss(reduction='none', zero_infinity=False)
         self.loss['distillation'] = SeqKD(T=8)
+        self.loss['translation'] = torch.nn.CrossEntropyLoss(ignore_index=PAD_ID)
         return self.loss
-
-
-class SLRModel(nn.Module):
-    def __init__(self, num_classes, vocab_num_classes, c2d_type, conv_type, use_bn=False, tm_type='BiLSTM',
-                 hidden_size=1024, gloss_dict=None, loss_weights=None):
-        super(SLRModel, self).__init__()
-        self.decoder = None
-        self.loss = dict()
-        self.criterion_init()
-        self.num_classes = num_classes
-        self.vocab_num_classes = vocab_num_classes
-        self.loss_weights = loss_weights
-        self.conv2d = getattr(models, c2d_type)(pretrained=True)
-        self.conv2d.fc = Identity()
-        self.conv1d = TemporalConv(input_size=512,
-                                   hidden_size=hidden_size,
-                                   conv_type=conv_type,
-                                   use_bn=use_bn,
-                                   num_classes=num_classes)
-        self.decoder = utils.Decode(gloss_dict, num_classes, 'beam')
-        self.temporal_model = BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
-                                              num_layers=2, bidirectional=True)
-        self.classifier = nn.Linear(hidden_size, self.num_classes)
-        self.register_backward_hook(self.backward_hook)
-
-    def backward_hook(self, module, grad_input, grad_output):
-        for g in grad_input:
-            g[g != g] = 0
-
-
-    def masked_bn(self, inputs, len_x):
-        def pad(tensor, length):
-            return torch.cat([tensor, tensor.new(length - tensor.size(0), *tensor.size()[1:]).zero_()])
-
-        x = torch.cat([inputs[len_x[0] * idx:len_x[0] * idx + lgt] for idx, lgt in enumerate(len_x)])
-        x = self.conv2d(x)
-        x = torch.cat([pad(x[sum(len_x[:idx]):sum(len_x[:idx + 1])], len_x[0])
-                       for idx, lgt in enumerate(len_x)])
-        return x
-
-    def forward(self, x, len_x, sentence, sentence_len, label=None, label_lgt=None):
-        if len(x.shape) == 5:
-            # videos
-            batch, temp, channel, height, width = x.shape
-            inputs = x.reshape(batch * temp, channel, height, width)
-            framewise = self.masked_bn(inputs, len_x)
-            framewise = framewise.reshape(batch, temp, -1).transpose(1, 2)
-        else:
-            # frame-wise features
-            framewise = x
-
-        conv1d_outputs = self.conv1d(framewise, len_x)
-        # x: T, B, C
-        x = conv1d_outputs['visual_feat']
-        lgt = conv1d_outputs['feat_len']
-        tm_outputs = self.temporal_model(x, lgt)
-        if type(self.temporal_model) is BiLSTM:
-            outputs = self.classifier(tm_outputs['predictions'])
-        else:
-            outputs = self.classifier(tm_outputs.transpose(1,0))
-
-
-
-        pred = None if self.training \
-            else self.decoder.decode(outputs, lgt, batch_first=False, probs=False)
-        conv_pred = None if self.training \
-            else self.decoder.decode(conv1d_outputs['conv_logits'], lgt, batch_first=False, probs=False)
-
-        return {
-            "framewise_features": framewise,
-            "visual_features": x,
-            "feat_len": lgt,
-            "conv_logits": conv1d_outputs['conv_logits'],
-            "sequence_logits": outputs,
-            "conv_sents": conv_pred,
-            "recognized_sents": pred,
-        }
-
-    def forward(self, x, len_x, label=None, label_lgt=None, phase='inference'): # TODO reimplement forward
-        if len(x.shape) == 5:
-            # videos
-            batch, temp, channel, height, width = x.shape
-            inputs = x.reshape(batch * temp, channel, height, width)
-            framewise = self.masked_bn(inputs, len_x)
-            framewise = framewise.reshape(batch, temp, -1).transpose(1, 2)
-        else:
-            # frame-wise features
-            framewise = x
-
-        conv1d_outputs = self.conv1d(framewise, len_x)
-        # x: T, B, C
-        x = conv1d_outputs['visual_feat']
-        lgt = conv1d_outputs['feat_len']
-        tm_outputs = self.temporal_model(x, lgt)
-
-        if type(self.temporal_model) is BiLSTM:
-            outputs = self.classifier(tm_outputs['predictions'])
-        else:
-            outputs = self.classifier(tm_outputs.transpose(1,0))
-        
-        pred = None if self.training \
-            else self.decoder.decode(outputs, lgt, batch_first=False, probs=False)
-        conv_pred = None if self.training \
-            else self.decoder.decode(conv1d_outputs['conv_logits'], lgt, batch_first=False, probs=False)
-
-        return {
-            "framewise_features": framewise,
-            "visual_features": x,
-            "feat_len": lgt,
-            "conv_logits": conv1d_outputs['conv_logits'],
-            "sequence_logits": outputs,
-            "conv_sents": conv_pred,
-            "recognized_sents": pred,
-        }
 
     def criterion_calculation(self, ret_dict, label, label_lgt):
         loss = 0
@@ -319,10 +211,32 @@ class SLRModel(nn.Module):
                                                            use_blank=False)
         return loss
 
-    def criterion_init(self):
-        self.loss['CTCLoss'] = torch.nn.CTCLoss(reduction='none', zero_infinity=False)
-        self.loss['distillation'] = SeqKD(T=8)
-        return self.loss
+
+    def loss_calculation(self, ret_dict, label, label_lgt, translation):
+        """
+        Calculate the loss for SLTVAC model.
+        """
+        loss = 0
+
+        if self.loss_weights["recognition_loss_weight"] > 0:
+            w = self.loss_weights["recognition_loss_weight"]
+            loss += w * self.loss_weights['ConvCTC'] * self.loss['CTCLoss'](ret_dict["conv_logits"].log_softmax(-1),
+                                                      label.cpu().int(), ret_dict["feat_len"].cpu().int(),
+                                                      label_lgt.cpu().int()).mean()
+            loss += w * self.loss_weights['SeqCTC'] * self.loss['CTCLoss'](ret_dict["sequence_logits"].log_softmax(-1),
+                                                      label.cpu().int(), ret_dict["feat_len"].cpu().int(),
+                                                      label_lgt.cpu().int()).mean()
+            loss += w * self.loss_weights['Dist'] * self.loss['distillation'](ret_dict["conv_logits"],
+                                                           ret_dict["sequence_logits"].detach(),
+                                                           use_blank=False)
+
+        if self.loss_weights["translation_loss_weight"] > 0:
+            loss += self.loss_weights["translation_loss_weight"] * self.loss['translation'](torch.transpose(ret_dict["sentence_logits"], 1, 2), translation[:][1:])
+
+        return loss
+
+    def inference(self):
+        pass
 
 def subsequent_mask(size: int):
     """

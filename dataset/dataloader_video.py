@@ -9,6 +9,8 @@ import torch
 import random
 import pandas
 import warnings
+from copy import deepcopy
+from signjoey.vocabulary import EOS_TOKEN, EOS_ID, BOS_ID, BOS_TOKEN, PAD_ID, PAD_TOKEN, UNK_ID, UNK_TOKEN
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -22,9 +24,10 @@ from torch.utils.data.sampler import Sampler
 
 sys.path.append("..")
 
+global PAD_VECTOR
 
 class BaseFeeder(data.Dataset):
-    def __init__(self, prefix, gloss_dict, vocab_dict, embedding, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
+    def __init__(self, prefix, gloss_dict, vocab_dict, word_embedding, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
                  datatype="lmdb"):
         self.mode = mode
         self.ng = num_gloss
@@ -32,7 +35,10 @@ class BaseFeeder(data.Dataset):
         self.dict = gloss_dict
         self.vocab_dict = vocab_dict
         self.data_type = datatype
-        self.embedding = embedding
+        self.embedding = word_embedding
+        global PAD_VECTOR
+        self.embedding = word_embedding
+        PAD_VECTOR = word_embedding[PAD_ID]
         self.feat_prefix = f"{prefix}/features/fullFrame-256x256px/{mode}"
         self.transform_mode = "train" if transform_mode else "test"
         self.inputs_list = np.load(f"./preprocess/phoenix2014/{mode}_info.npy", allow_pickle=True).item()
@@ -63,19 +69,20 @@ class BaseFeeder(data.Dataset):
         img_folder = os.path.join(self.prefix, "features/fullFrame-256x256px/" + fi['folder'])
         img_list = sorted(glob.glob(img_folder))
         label_list = []
+        translation_list = [BOS_ID, ]
 
-        translation_list = [2, ]
         for phase in fi['label'].split(" "):
             if phase == '':
                 continue
             if phase in self.dict.keys():
                 label_list.append(self.dict[phase][0])
+
         for phase in fi['translation'].split(" "):
             if phase == '':
                 continue
             if phase in self.vocab_dict.keys():
-                translation_list.append(self.vocab_dict[phase][0])
-        translation_list.append(3) 
+                translation_list.append(self.vocab_dict[phase])
+        translation_list.append(EOS_ID)
 
         sentence_embedding = []
         # Create tensor
@@ -157,32 +164,36 @@ class BaseFeeder(data.Dataset):
 
         label_length = torch.LongTensor([len(lab) for lab in label])
 
-        translation_length = torch.LongTensor([len(trans) - 2 for trans in translation])
+        translation_length = torch.LongTensor([len(trans) for trans in translation])
 
-        max_sentence_length = torch.max(translation_length) + 1
+        max_pad_sentence_length = torch.max(translation_length)
+
+        translation = [trans + [PAD_ID]*(max_pad_sentence_length - len(trans)) for trans in translation]
+        translation = torch.Tensor(translation)
+
         padded_translation_embedding = [torch.cat(
             (
             torch.Tensor(vectors),
-            torch.Tensor([vectors[-1],]).expand(max_sentence_length - len(vectors), -1)
+            torch.Tensor([PAD_VECTOR for _ in range(max_pad_sentence_length - 1 - len(vectors))])
             ),
             dim=0)
             for vectors in word_vectors]
         padded_translation_embedding = torch.stack(padded_translation_embedding)
 
         if max(label_length) == 0:
-            return padded_video, video_length, [], [], [], [], info
+            return padded_video, video_length, [], [], [], [], [], info
         else:
             padded_label = []
             for lab in label:
                 padded_label.extend(lab)
             padded_label = torch.LongTensor(padded_label)
 
-            padded_translation = []
-            for trans in translation:
-                padded_translation.extend(trans)
-            padded_translation = torch.LongTensor(padded_translation)
+            # padded_translation = []
+            # for trans in translation:
+            #     padded_translation.extend(trans)
+            # padded_translation = torch.LongTensor(padded_translation)
 
-            return padded_video, video_length, padded_label, label_length, padded_translation, translation_length, padded_translation_embedding, info
+            return padded_video, video_length, padded_label, label_length, translation, translation_length, padded_translation_embedding, info
 
     def __len__(self):
         return len(self.inputs_list) - 1

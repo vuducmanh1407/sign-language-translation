@@ -158,6 +158,8 @@ if __name__ == '__main__':
     save_vocab_dict = {}
 
     word_embedding = {}
+    
+    fasttext.util.download_model('de', if_exists='ignore')  # German word embedding
     ft = fasttext.load_model('cc.de.300.bin')
 
     for idx, (key, value) in enumerate(sign_dict):
@@ -166,6 +168,11 @@ if __name__ == '__main__':
     for idx, (key, value) in enumerate(vocab_dict):
         save_vocab_dict[key] = idx + 4
         word_embedding[idx + 4] = ft.get_word_vector(key) #vector
+
+    word_embedding[0] = ft.get_word_vector('<unk>')
+    word_embedding[1] = ft.get_word_vector('<pad>')
+    word_embedding[2] = ft.get_word_vector('<s>')
+    word_embedding[3] = ft.get_word_vector('</s>')
 
     save_vocab_dict['<unk>'] = 0
     save_vocab_dict['<pad>'] = 1
