@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from evaluation.slr_eval.wer_calculation import evaluate
 
 
-def seq_train(loader, model, optimizer, device, epoch_idx, recoder):
+def seq_train(loader, model, optimizer, device, epoch_idx, recorder):
     model.train()
     loss_value = []
     clr = [group['lr'] for group in optimizer.optimizer.param_groups]
@@ -25,6 +25,7 @@ def seq_train(loader, model, optimizer, device, epoch_idx, recoder):
         word_embedding = device.data_to_device(data[6])
         ret_dict = model(vid, vid_lgt, word_embedding, translation_lgt)
         loss = model.criterion_calculation(ret_dict, label, label_lgt)
+        loss = model.loss_calculation(ret_dict, label, label_lgt, translation)
         if np.isinf(loss.item()) or np.isnan(loss.item()):
             print(data[-1])
             continue
@@ -33,16 +34,16 @@ def seq_train(loader, model, optimizer, device, epoch_idx, recoder):
         # nn.utils.clip_grad_norm_(model.rnn.parameters(), 5)
         optimizer.step()
         loss_value.append(loss.item())
-        if batch_idx % recoder.log_interval == 0:
-            recoder.print_log(
+        if batch_idx % recorder.log_interval == 0:
+            recorder.print_log(
                 '\tEpoch: {}, Batch({}/{}) done. Loss: {:.8f}  lr:{:.6f}'
                     .format(epoch_idx, batch_idx, len(loader), loss.item(), clr[0]))
     optimizer.scheduler.step()
-    recoder.print_log('\tMean training loss: {:.10f}.'.format(np.mean(loss_value)))
+    recorder.print_log('\tMean training loss: {:.10f}.'.format(np.mean(loss_value)))
     return loss_value
 
 
-def seq_eval(cfg, loader, model, device, mode, epoch, work_dir, recoder,
+def seq_eval(cfg, loader, model, device, mode, epoch, work_dir, recorder,
              evaluate_tool="python"):
     model.eval()
     total_sent = []
@@ -51,7 +52,7 @@ def seq_eval(cfg, loader, model, device, mode, epoch, work_dir, recoder,
     stat = {i: [0, 0] for i in range(len(loader.dataset.dict))}
     print(type(loader))
     for batch_idx, data in enumerate(tqdm(loader)):
-        recoder.record_timer("device")
+        recorder.record_timer("device")
         vid = device.data_to_device(data[0])
         vid_lgt = device.data_to_device(data[1])
         label = device.data_to_device(data[2])
@@ -87,11 +88,11 @@ def seq_eval(cfg, loader, model, device, mode, epoch, work_dir, recoder,
         lstm_ret = 100.0
     finally:
         pass
-    recoder.print_log(f"Epoch {epoch}, {mode} {lstm_ret: 2.2f}%", f"{work_dir}/{mode}.txt")
+    recorder.print_log(f"Epoch {epoch}, {mode} {lstm_ret: 2.2f}%", f"{work_dir}/{mode}.txt")
     return lstm_ret
 
 
-def seq_feature_generation(loader, model, device, mode, work_dir, recoder):
+def seq_feature_generation(loader, model, device, mode, work_dir, recorder):
     model.eval()
 
     src_path = os.path.abspath(f"{work_dir}{mode}")
@@ -111,7 +112,7 @@ def seq_feature_generation(loader, model, device, mode, work_dir, recoder):
             return
 
     for batch_idx, data in tqdm(enumerate(loader)):
-        recoder.record_timer("device")
+        recorder.record_timer("device")
         vid = device.data_to_device(data[0])
         vid_lgt = device.data_to_device(data[1])
         with torch.no_grad():

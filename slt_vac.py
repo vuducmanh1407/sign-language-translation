@@ -277,7 +277,8 @@ if __name__ == "__main__":
 
     # msk = subsequent_mask(6)
     # print(msk)
-    model = TransformerDecoder()
-    x = torch.randn((2, 30, 512))
-    out1, out2 = model(x)
-    print(out1.size)
+
+    # model = TransformerDecoder()
+    # x = torch.randn((2, 30, 512))
+    # out1, out2 = model(x)
+    # print(out1.size)
