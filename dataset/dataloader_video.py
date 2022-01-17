@@ -171,17 +171,9 @@ class BaseFeeder(data.Dataset):
         translation = [trans + [PAD_ID]*(max_pad_sentence_length - len(trans)) for trans in translation]
         translation = torch.Tensor(translation)
 
-        padded_translation_embedding = [torch.cat(
-            (
-            torch.Tensor(vectors),
-            torch.Tensor([PAD_VECTOR for _ in range(max_pad_sentence_length - 1 - len(vectors))])
-            ),
-            dim=0)
-            for vectors in word_vectors]
-        padded_translation_embedding = torch.stack(padded_translation_embedding)
 
         if max(label_length) == 0:
-            return padded_video, video_length, [], [], [], [], [], info
+            return padded_video, video_length, [], [], [], [], info
         else:
             padded_label = []
             for lab in label:
@@ -193,7 +185,7 @@ class BaseFeeder(data.Dataset):
             #     padded_translation.extend(trans)
             # padded_translation = torch.LongTensor(padded_translation)
 
-            return padded_video, video_length, padded_label, label_length, translation, translation_length, padded_translation_embedding, info
+            return padded_video, video_length, padded_label, label_length, translation, translation_length, info
 
     def __len__(self):
         return len(self.inputs_list) - 1

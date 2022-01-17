@@ -20,10 +20,9 @@ def seq_train(loader, model, optimizer, device, epoch_idx, recorder):
         vid_lgt = device.data_to_device(data[1])
         label = device.data_to_device(data[2])
         label_lgt = device.data_to_device(data[3])
-        translation = device.data_to_device(data[4])
+        translation = data[4]
         translation_lgt = device.data_to_device(data[5])
-        word_embedding = device.data_to_device(data[6])
-        ret_dict = model(vid, vid_lgt, word_embedding, translation_lgt)
+        ret_dict = model(vid, vid_lgt,translation, translation_lgt)
         loss = model.criterion_calculation(ret_dict, label, label_lgt)
         loss = model.loss_calculation(ret_dict, label, label_lgt, translation)
         if np.isinf(loss.item()) or np.isnan(loss.item()):
@@ -60,6 +59,7 @@ def seq_eval(cfg, loader, model, device, mode, epoch, work_dir, recorder,
         with torch.no_grad():
             ret_dict = model(vid, vid_lgt, label=label, label_lgt=label_lgt)
 
+        # ret_dict = model.output_inference(ret_dict)
         total_info += [file_name.split("|")[0] for file_name in data[-1]]
         total_sent += ret_dict['recognized_sents']
         total_conv_sent += ret_dict['conv_sents']

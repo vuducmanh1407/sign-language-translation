@@ -125,7 +125,9 @@ class SLTVACModel(nn.Module):
 
         self.classifier = nn.Linear(hidden_size, self.num_classes)
         self.register_backward_hook(self.backward_hook)   
-        self.phase = phase 
+        self.phase = phase
+        self.do_recognition = self.loss_weights["recognition_loss_weight"] > 0
+        self.do_translation = self.loss_weights["translation_loss_weight"] > 0
 
     def backward_hook(self, module, grad_input, grad_output):
         for g in grad_input:
@@ -235,8 +237,18 @@ class SLTVACModel(nn.Module):
 
         return loss
 
-    def inference(self):
-        pass
+    def output_inference(self, ret_dict):
+        new_ret_dict = ret_dict
+
+
+        pred = self.decoder.decode(ret_dict["sequence_logits"], ret_dict["feat_len"], batch_first=False, probs=False)
+        conv_pred = self.decoder.decode(ret_dict["conv_logit"], ret_dict["feat_len"], batch_first=False, probs=False)
+
+        new_ret_dict["conv_sents"] = conv_pred
+        new_ret_dict["recognized_sents"] = pred
+
+        return new_ret_dict
+        
 
 def subsequent_mask(size: int):
     """
