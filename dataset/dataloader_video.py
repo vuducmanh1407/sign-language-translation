@@ -24,10 +24,10 @@ from torch.utils.data.sampler import Sampler
 
 sys.path.append("..")
 
-global PAD_VECTOR
+
 
 class BaseFeeder(data.Dataset):
-    def __init__(self, prefix, gloss_dict, vocab_dict, word_embedding, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
+    def __init__(self, prefix, gloss_dict, vocab_dict, drop_ratio=1, num_gloss=-1, mode="train", transform_mode=True,
                  datatype="lmdb"):
         self.mode = mode
         self.ng = num_gloss
@@ -35,10 +35,7 @@ class BaseFeeder(data.Dataset):
         self.dict = gloss_dict
         self.vocab_dict = vocab_dict
         self.data_type = datatype
-        self.embedding = word_embedding
-        global PAD_VECTOR
-        self.embedding = word_embedding
-        PAD_VECTOR = word_embedding[PAD_ID]
+
         self.feat_prefix = f"{prefix}/features/fullFrame-256x256px/{mode}"
         self.transform_mode = "train" if transform_mode else "test"
         self.inputs_list = np.load(f"./preprocess/phoenix2014/{mode}_info.npy", allow_pickle=True).item()
@@ -51,10 +48,10 @@ class BaseFeeder(data.Dataset):
 
     def __getitem__(self, idx):
         if self.data_type == "video":
-            input_data, label, translation, sentence_embedding, fi = self.read_video(idx)
+            input_data, label, translation, fi = self.read_video(idx)
             input_data, label = self.normalize(input_data, label)
             # input_data, label = self.normalize(input_data, label, fi['fileid'])
-            return input_data, torch.LongTensor(label), torch.LongTensor(translation), torch.Tensor(sentence_embedding), self.inputs_list[idx]['original_info']
+            return input_data, torch.LongTensor(label), translation, self.inputs_list[idx]['original_info']
         elif self.data_type == "lmdb":
             input_data, label, fi = self.read_lmdb(idx)
             input_data, label = self.normalize(input_data, label)
@@ -84,12 +81,12 @@ class BaseFeeder(data.Dataset):
                 translation_list.append(self.vocab_dict[phase])
         translation_list.append(EOS_ID)
 
-        sentence_embedding = []
-        # Create tensor
-        for i in translation_list[:-1]: # Dont need to vectorize eos token
-            sentence_embedding.append(self.embedding[i])
+        # sentence_embedding = []
+        # # Create tensor
+        # for i in translation_list[:-1]: # Dont need to vectorize eos token
+        #     sentence_embedding.append(self.embedding[i])
            
-        return [cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB) for img_path in img_list], label_list, translation_list, sentence_embedding, fi
+        return [cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB) for img_path in img_list], label_list, translation_list, fi
 
     def read_features(self, index):
         # load file info
@@ -134,7 +131,7 @@ class BaseFeeder(data.Dataset):
     @staticmethod
     def collate_fn(batch):
         batch = [item for item in sorted(batch, key=lambda x: len(x[0]), reverse=True)] # sorted with video length
-        video, label, translation, word_vectors, info = list(zip(*batch))
+        video, label, translation, info = list(zip(*batch))
         if len(video[0].shape) > 3:
             max_len = len(video[0])
             video_length = torch.LongTensor([np.ceil(len(vid) / 4.0) * 4 + 12 for vid in video])

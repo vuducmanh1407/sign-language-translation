@@ -1,4 +1,4 @@
-dataset_root: ./dataset/phoenix2014/phoenix-2014-multisigner
+dataset_root: ./dataset/PHOENIX-2014-T-release-v3/PHOENIX-2014-T
 dict_path: ./preprocess/phoenix2014t/gloss_dict.npy
 embedding_path: ./preprocess/phoenix2014t/word_embedding_fasttext.npy
 evaluation_dir: ./evaluation/slt_vac_eval

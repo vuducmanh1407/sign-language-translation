@@ -24,7 +24,7 @@ def csv2dict(anno_path, dataset_type):
     print(f"Generate information dict from {anno_path}")
     for file_idx, file_info in tqdm(enumerate(inputs_list), total=len(inputs_list)):
         fileid, folder, start, end, signer, label, translation = file_info.split("|")
-        folder.replace('/1/','/')
+        folder = folder.replace('/1/','/')
         num_frames = len(glob.glob(f"{info_dict['prefix']}/{dataset_type}/{folder}"))
         info_dict[file_idx] = {
             'fileid': fileid,
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         description='Data process for Visual Alignment Constraint for Continuous Sign Language Recognition.')
     parser.add_argument('--dataset', type=str, default='phoenix2014t',
                         help='save prefix')
-    parser.add_argument('--dataset-root', type=str, default='../dataset',
+    parser.add_argument('--dataset-root', type=str, default='../dataset/',
                         help='path to the dataset')
     parser.add_argument('--annotation-prefix', type=str, default='annotations/manual/PHOENIX-2014-T.{}.corpus.csv',
                         help='annotation prefix')

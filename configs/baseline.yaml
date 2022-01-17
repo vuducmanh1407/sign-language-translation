@@ -48,7 +48,6 @@ model_args:
   conv_type: 2
   use_bn: 1
   encoder_type: Transformers
-  decoder_type: Transformers
 
 initializer:
   initializer: xavier

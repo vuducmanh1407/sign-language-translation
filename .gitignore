@@ -1,2 +1,3 @@
-dataset/phoenix2014T/
-preprocess/phoenix2014t/
+dataset/
+preprocess/
+work_dir/

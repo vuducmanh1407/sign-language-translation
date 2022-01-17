@@ -20,9 +20,9 @@ def seq_train(loader, model, optimizer, device, epoch_idx, recorder):
         vid_lgt = device.data_to_device(data[1])
         label = device.data_to_device(data[2])
         label_lgt = device.data_to_device(data[3])
-        translation = data[4]
+        translation = device.data_to_device(data[4])
         translation_lgt = device.data_to_device(data[5])
-        ret_dict = model(vid, vid_lgt,translation, translation_lgt)
+        ret_dict = model(vid, vid_lgt, translation, translation_lgt)
         loss = model.criterion_calculation(ret_dict, label, label_lgt)
         loss = model.loss_calculation(ret_dict, label, label_lgt, translation)
         if np.isinf(loss.item()) or np.isnan(loss.item()):

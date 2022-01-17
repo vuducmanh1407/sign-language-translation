@@ -97,8 +97,8 @@ class Processor():
         }, save_path)
 
     def loading(self):
-        # self.device.set_device(self.arg.device)
-        # print("Loading model")
+        self.device.set_device(self.arg.device)
+        print("Loading model")
         model_class = import_class(self.arg.model)
         model = model_class(
             **self.arg.model_args,
@@ -221,4 +221,4 @@ if __name__ == '__main__':
     print(args)
     processor = Processor(args)
     # utils.pack_code("./", args.work_dir)
-    # processor.start()
+    processor.start()

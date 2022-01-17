@@ -112,12 +112,11 @@ class SLTVACModel(nn.Module):
                                               num_layers=2, bidirectional=True)
         else:
             self.temporal_model = TransformerEncoder(**encoder_arg)
+        
 
         self.embedding = nn.Sequential(
-            [
-                nn.Linear(embedding_size, hidden_size),
+                nn.Linear(int(embedding_size), int(hidden_size)),
                 nn.Softmax(dim=2)
-            ]
         )
 
 
@@ -137,7 +136,7 @@ class SLTVACModel(nn.Module):
         def pad(tensor, length):
             return torch.cat([tensor, tensor.new(length - tensor.size(0), *tensor.size()[1:]).zero_()])
 
-        x = torch.cat([inputs[len_x[0] * idx:len_x[0] * idx + lgt] for idx, lgt in enumerate(len_x)])
+        x = torch.cat([inputs[len_x[0] * idx:len_x[0] * idx + lgt] for idx, lgt in enumerate(len_x)])      
         x = self.conv2d(x)
         x = torch.cat([pad(x[sum(len_x[:idx]):sum(len_x[:idx + 1])], len_x[0])
                        for idx, lgt in enumerate(len_x)])
@@ -261,7 +260,7 @@ def subsequent_mask(size: int):
     mask = np.triu(np.ones((1, size, size)), k=1).astype("uint8")
     return torch.from_numpy(mask) == 0
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # x = torch.randn((3, 3, 3))
     # print(x)
     # x = ~x
