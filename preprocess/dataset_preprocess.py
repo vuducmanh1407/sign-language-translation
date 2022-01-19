@@ -112,7 +112,7 @@ if __name__ == '__main__':
         description='Data process for Visual Alignment Constraint for Continuous Sign Language Recognition.')
     parser.add_argument('--dataset', type=str, default='phoenix2014t',
                         help='save prefix')
-    parser.add_argument('--dataset-root', type=str, default='../dataset/',
+    parser.add_argument('--dataset-root', type=str, default='../dataset/PHOENIX-2014-T-release-v3/PHOENIX-2014-T/',
                         help='path to the dataset')
     parser.add_argument('--annotation-prefix', type=str, default='annotations/manual/PHOENIX-2014-T.{}.corpus.csv',
                         help='annotation prefix')
@@ -141,15 +141,15 @@ if __name__ == '__main__':
         generate_gt_stm(information, f"./{args.dataset}/{args.dataset}-groundtruth-{md}.stm")
         # generate groudtruth sentence stm for evaluation
         generate_gt_sentence(information, f"./{args.dataset}/{args.dataset}-groundtruth-sentence-{md}.stm")
-        # # resize images
-        # video_index = np.arange(len(information) - 1)
-        # print(f"Resize image to {args.output_res}")
-        # if args.process_image:
-        #     if args.multiprocessing:
-        #         run_mp_cmd(10, partial(resize_dataset, dsize=args.output_res, info_dict=information), video_index)
-        #     else:
-        #         for idx in tqdm(video_index):
-        #             run_cmd(partial(resize_dataset, dsize=args.output_res, info_dict=information), idx)
+        # resize images
+        video_index = np.arange(len(information) - 1)
+        print(f"Resize image to {args.output_res}")
+        if args.process_image:
+            if args.multiprocessing:
+                run_mp_cmd(10, partial(resize_dataset, dsize=args.output_res, info_dict=information), video_index)
+            else:
+                for idx in tqdm(video_index):
+                    run_cmd(partial(resize_dataset, dsize=args.output_res, info_dict=information), idx)
         
     sign_dict = sorted(sign_dict.items(), key=lambda d: d[0])
     vocab_dict = sorted(vocab_dict.items(), key=lambda d: d[0])

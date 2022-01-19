@@ -1,3 +1,4 @@
-dataset/
-preprocess/
+dataset/annotations
+preprocess/phoenix2014t
+preprocess/phoenix2014
 work_dir/
