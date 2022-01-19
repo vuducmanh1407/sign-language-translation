@@ -12,35 +12,7 @@ from modules.criterions import SeqKD
 from modules import BiLSTM, BiLSTMLayer, TemporalConv
 from signjoey.encoders import TransformerEncoder
 from signjoey.decoders import TransformerDecoder, RecurrentDecoder
-
-def make_src_mask(lgt):
-    batch_len = len(lgt)
-    mask = torch.zeros([batch_len, lgt[0]], dtype=int)
-    for idx, l in enumerate(lgt):
-        for i in range(l):
-            mask[idx][i] = 1
-    return mask.unsqueeze(1)
-
-def make_txt_mask(lgt):
-    """
-        Create text mask from a sequence of length (not necessarily sorted)
-        Input:
-        lgt: sequence of length ([3,4,1,2...]): 1d Tensor
-
-        Output:
-        A 3 dimension Tensor of mask [B, M, M] with B is mini-batch length,
-
-    """
-    m = torch.max(lgt)
-    txt_mask = []
-    for _, l in enumerate(lgt):
-        msk = torch.zeros((m,m), dtype=bool)
-        for i in range(l):
-            for j in range(i+1):
-                msk[i][j] = True
-        txt_mask.append(msk.unsqueeze(0))
-    
-    return torch.cat(txt_mask, dim=0)
+from utils.masks import make_src_mask, make_txt_mask
 
 class Identity(nn.Module):
     def __init__(self):
@@ -66,7 +38,8 @@ class SLTVACModel(nn.Module):
         encoder_arg=None,
         decoder_arg=None,
         loss_weights=None,
-        phase="train"
+        phase="train",
+        device=None
     ):
 
         """
@@ -94,6 +67,7 @@ class SLTVACModel(nn.Module):
 
         super(SLTVACModel, self).__init__()
         self.decoder = None
+        self.device = device
         self.loss = dict()
         self.criterion_init()
         self.num_classes = num_classes
@@ -163,16 +137,18 @@ class SLTVACModel(nn.Module):
         if type(self.temporal_model) is BiLSTM:
             tm_outputs = self.temporal_model(x, lgt)
         else:
-            tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, make_src_mask(lgt)), 0, 1)
+            src_mask = self.device.data_to_device(make_src_mask(lgt))
+            tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, src_mask), 0, 1)
 
         outputs = self.classifier(tm_outputs['predictions'])
 
         # Implement decoder
+        txt_mask = self.device.data_to_device(make_txt_mask([l - 1 for l in sentence_len]))
         sentence_outputs, _, _, _ = self.decoder_module(
             tm_outputs.transpose(0, 1),
             sentence,
-            src_mask = make_src_mask(lgt),
-            trg_mask = make_txt_mask([l - 1 for l in sentence_len])
+            src_mask = src_mask(lgt),
+            trg_mask = txt_mask
         )
 
         # pred = None if self.training \

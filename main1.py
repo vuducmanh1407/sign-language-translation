@@ -1,5 +1,7 @@
 import os
 
+from zmq import device
+
 from preprocess.dataset_preprocess import vocab_dict_update
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -107,6 +109,7 @@ class Processor():
             encoder_arg=self.arg.encoder,
             decoder_arg=self.arg.decoder,
             loss_weights=self.arg.loss_weights,
+            device=self.device
         )
         optimizer = utils.Optimizer(model, self.arg.optimizer_args)
 
