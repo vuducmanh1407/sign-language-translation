@@ -138,16 +138,16 @@ class SLTVACModel(nn.Module):
             tm_outputs = self.temporal_model(x, lgt)
         else:
             src_mask = self.device.data_to_device(make_src_mask(lgt))
-            tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, src_mask), 0, 1)
+            tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, src_mask)[0], 0, 1)
 
-        outputs = self.classifier(tm_outputs['predictions'])
+        outputs = self.classifier(tm_outputs)
 
         # Implement decoder
-        txt_mask = self.device.data_to_device(make_txt_mask([l - 1 for l in sentence_len]))
+        txt_mask = self.device.data_to_device(make_txt_mask(torch.Tensor([l - 1 for l in sentence_len])))
         sentence_outputs, _, _, _ = self.decoder_module(
             tm_outputs.transpose(0, 1),
             sentence,
-            src_mask = src_mask(lgt),
+            src_mask = src_mask,
             trg_mask = txt_mask
         )
 
