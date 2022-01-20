@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 from modules.criterions import SeqKD
+from modules.embeddings import WordEmbedding
 from modules import BiLSTM, BiLSTMLayer, TemporalConv
 from signjoey.encoders import TransformerEncoder
 from signjoey.decoders import TransformerDecoder, RecurrentDecoder
@@ -31,7 +32,7 @@ class SLTVACModel(nn.Module):
         conv_type,
         use_bn=False,
         encoder_type='Transformers',
-        embedding_size='300',
+        embedding_size=300,
         hidden_size=512,
         gloss_dict=None,
         vocab_dict=None,
@@ -39,7 +40,8 @@ class SLTVACModel(nn.Module):
         decoder_arg=None,
         loss_weights=None,
         phase="train",
-        device=None
+        device=None,
+        pretrained_embedding=None
     ):
 
         """
@@ -88,10 +90,7 @@ class SLTVACModel(nn.Module):
             self.temporal_model = TransformerEncoder(**encoder_arg)
         
 
-        self.embedding = nn.Sequential(
-                nn.Linear(int(embedding_size), int(hidden_size)),
-                nn.Softmax(dim=2)
-        )
+        self.embedding = WordEmbedding(embedding_size, hidden_size, pretrained_embedding, device)
 
 
         self.decoder_module = TransformerDecoder(**decoder_arg, vocab_size=vocab_num_classes)

@@ -3,7 +3,7 @@ import torch
 
 def make_src_mask(lgt):
     batch_len = len(lgt)
-    mask = torch.zeros([batch_len, int(lgt[0].item())], dtype=bool)
+    mask = torch.zeros([batch_len, int(lgt[0].item())], dtype=torch.bool)
     for idx, l in enumerate(lgt):
         for i in range(int(l.item())):
             mask[idx][i] = 1

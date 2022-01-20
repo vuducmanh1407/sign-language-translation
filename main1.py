@@ -109,7 +109,8 @@ class Processor():
             encoder_arg=self.arg.encoder,
             decoder_arg=self.arg.decoder,
             loss_weights=self.arg.loss_weights,
-            device=self.device
+            device=self.device,
+            pretrained_embedding=self.word_embedding
         )
         optimizer = utils.Optimizer(model, self.arg.optimizer_args)
 
