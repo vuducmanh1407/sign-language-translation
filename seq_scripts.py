@@ -49,7 +49,6 @@ def seq_eval(cfg, loader, model, device, mode, epoch, work_dir, recorder,
     total_info = []
     total_conv_sent = []
     stat = {i: [0, 0] for i in range(len(loader.dataset.dict))}
-    print(type(loader))
     for batch_idx, data in enumerate(tqdm(loader)):
         recorder.record_timer("device")
         vid = device.data_to_device(data[0])

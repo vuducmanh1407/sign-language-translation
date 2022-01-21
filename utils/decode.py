@@ -9,14 +9,14 @@ import torch.nn.functional as F
 
 
 class Decode(object):
-    def __init__(self, gloss_dict, num_classes, search_mode, blank_id=0):
+    def __init__(self, gloss_dict, num_classes, search_mode, blank_id=0, beam_width=10):
         self.i2g_dict = dict((v[0], k) for k, v in gloss_dict.items())
         self.g2i_dict = {v: k for k, v in self.i2g_dict.items()}
         self.num_classes = num_classes
         self.search_mode = search_mode
         self.blank_id = blank_id
         vocab = [chr(x) for x in range(20000, 20000 + num_classes)]
-        self.ctc_decoder = ctcdecode.CTCBeamDecoder(vocab, beam_width=10, blank_id=blank_id,
+        self.ctc_decoder = ctcdecode.CTCBeamDecoder(vocab, beam_width=beam_width, blank_id=blank_id,
                                                     num_processes=10)
 
     def decode(self, nn_output, vid_lgt, batch_first=True, probs=False):

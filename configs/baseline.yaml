@@ -83,3 +83,35 @@ decoder:
   hidden_size: 512
   ff_size: 2048
   dropout: 0.1
+
+testing:
+  recognition_beam_sizes:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  translation_beam_sizes:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  translation_beam_alphas:
+  - -1
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5

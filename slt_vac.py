@@ -31,7 +31,7 @@ class SLTVACModel(nn.Module):
         c2d_type,
         conv_type,
         use_bn=False,
-        encoder_type='Transformers',
+        encoder_type='BiLSTM',
         embedding_size=300,
         hidden_size=512,
         gloss_dict=None,
@@ -83,7 +83,7 @@ class SLTVACModel(nn.Module):
                                    use_bn=use_bn,
                                    num_classes=num_classes)
         # self.recognition = utils.Decode(gloss_dict, num_classes, 'beam')
-        if encoder_type == "BILSTM":
+        if encoder_type == "BiLSTM":
             self.temporal_model = BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
                                               num_layers=2, bidirectional=True)
         else:
@@ -142,10 +142,11 @@ class SLTVACModel(nn.Module):
         outputs = self.classifier(tm_outputs)
 
         # Implement decoder
-        txt_mask = self.device.data_to_device(make_txt_mask(torch.Tensor([l - 1 for l in sentence_len])))
+        sentence_embedding = self.embedding(sentence)
+        txt_mask = self.device.data_to_device(make_txt_mask(torch.Tensor([l for l in sentence_len])))
         sentence_outputs, _, _, _ = self.decoder_module(
+            sentence_embedding,
             tm_outputs.transpose(0, 1),
-            sentence,
             src_mask = src_mask,
             trg_mask = txt_mask
         )
@@ -193,7 +194,7 @@ class SLTVACModel(nn.Module):
         Calculate the loss for SLTVAC model.
         """
         loss = 0
-
+        batch_size = translation.size(0)
         if self.loss_weights["recognition_loss_weight"] > 0:
             w = self.loss_weights["recognition_loss_weight"]
             loss += w * self.loss_weights['ConvCTC'] * self.loss['CTCLoss'](ret_dict["conv_logits"].log_softmax(-1),
@@ -206,8 +207,10 @@ class SLTVACModel(nn.Module):
                                                            ret_dict["sequence_logits"].detach(),
                                                            use_blank=False)
 
+        pad = torch.full([batch_size , 1], PAD_ID, dtype=torch.int)
+        hyp = torch.cat([translation[:, 1:] , pad.to(self.device.output_device)], dim=1).long()
         if self.loss_weights["translation_loss_weight"] > 0:
-            loss += self.loss_weights["translation_loss_weight"] * self.loss['translation'](torch.transpose(ret_dict["sentence_logits"], 1, 2), translation[:][1:])
+            loss += self.loss_weights["translation_loss_weight"] * self.loss['translation'](torch.transpose(ret_dict["sentence_logits"], 1, 2), hyp)
 
         return loss
 
