@@ -16,6 +16,7 @@ from signjoey.decoders import TransformerDecoder, RecurrentDecoder
 from utils.masks import make_src_mask, make_txt_mask
 from signjoey.search import beam_search, transformer_greedy
 from utils.vocab import arrays_to_sentences
+from utils.decode import Decode
 
 class Identity(nn.Module):
     def __init__(self):
@@ -139,8 +140,8 @@ class SLTVACModel(nn.Module):
         # Encoder
         src_mask = self.device.data_to_device(make_src_mask(lgt))
 
-        if type(self.temporal_model) is BiLSTM:
-            tm_outputs = self.temporal_model(x, lgt)
+        if type(self.temporal_model) is BiLSTMLayer:
+            tm_outputs = self.temporal_model(x, lgt)['predictions']
         else:            
             tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, src_mask)[0], 0, 1)
         
@@ -204,8 +205,8 @@ class SLTVACModel(nn.Module):
         # Encoder
         src_mask = self.device.data_to_device(make_src_mask(lgt))
 
-        if type(self.temporal_model) is BiLSTM:
-            tm_outputs = self.temporal_model(x, lgt)
+        if type(self.temporal_model) is BiLSTMLayer:
+            tm_outputs = self.temporal_model(x, lgt)['predictions']
         else:
             
             tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, src_mask)[0], 0, 1)
@@ -275,17 +276,19 @@ class SLTVACModel(nn.Module):
         translation_beam_width=1,
         translation_beam_alpha=1,
         encoder_output=None,
+        conv_logits=None,
         encoder_lgt=None,
         src_mask=None,
     ):
 
         if do_recognition:
+            output = self.classifier(encoder_output).transpose(0, 1)
             if recognition_beam_width > 1:
-                recognition = utils.Decode(self.gloss_dict, self.num_classes, 'beam', beam_width=recognition_beam_width)
+                recognition = Decode(self.gloss_dict, self.num_classes, 'beam', beam_width=recognition_beam_width)
             else:
-                recognition = utils.Decode(self.gloss_dict, self.num_classes, 'max')
-            temporal_gloss = recognition.decode(encoder_output, encoder_lgt, batch_first=False, probs=False)
-            conv_gloss = recognition.decode(encoder_output, encoder_lgt, batch_first=False, probs=False)
+                recognition = Decode(self.gloss_dict, self.num_classes, 'max')
+            temporal_gloss = recognition.decode(output, encoder_lgt, batch_first=False, probs=False)
+            conv_gloss = recognition.decode(conv_logits, encoder_lgt, batch_first=False, probs=False)
         else:
             temporal_gloss, conv_gloss = None, None
         if do_translation:

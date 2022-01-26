@@ -56,7 +56,7 @@ class Processor():
                           self.device, epoch, self.recorder)
                 loss_dict[epoch] = loss
                 if eval_model:
-                    metrics = seq_eval(cfg=self.arg, loader=self.data_loader['dev'], model=self.model, device=self.device,
+                    metrics = seq_eval(cfg=self.arg, loader=self.data_loader['dev'], model=self.model, device=self.device, epoch=epoch,
                                     recorder=self.recorder, do_recognition=self.do_recognition, do_translation=self.do_translation)
                     metrics_dict[epoch] = metrics
                 if save_model:

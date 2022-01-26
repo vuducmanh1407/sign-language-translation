@@ -29,7 +29,7 @@ class GpuDataParallel(object):
         return model
 
     def data_to_device(self, data):
-        if isinstance(data, torch.FloatTensor) or isinstance(data, torch.FloatTensor):
+        if isinstance(data, torch.FloatTensor) or isinstance(data, torch.BoolTensor):
             return data.to(self.output_device)
         elif isinstance(data, torch.DoubleTensor):
             return data.float().to(self.output_device)

@@ -72,6 +72,7 @@ def seq_eval(cfg, loader, model, device, epoch, recorder, do_recognition=True, d
             translation_beam_width=1,
             translation_beam_alpha=1,
             encoder_output=ret_dict["encoder_output"],
+            conv_logits=ret_dict["conv_logits"],
             encoder_lgt=ret_dict["feat_len"],
             src_mask=ret_dict["src_mask"],
         )
