@@ -1,6 +1,6 @@
 import pdb
 import copy
-from signjoey.vocabulary import PAD_ID
+from signjoey.vocabulary import BOS_ID, EOS_ID, PAD_ID
 import utils
 import torch
 import types
@@ -14,6 +14,8 @@ from modules import BiLSTM, BiLSTMLayer, TemporalConv
 from signjoey.encoders import TransformerEncoder
 from signjoey.decoders import TransformerDecoder, RecurrentDecoder
 from utils.masks import make_src_mask, make_txt_mask
+from signjoey.search import beam_search, transformer_greedy
+from utils.vocab import arrays_to_sentences
 
 class Identity(nn.Module):
     def __init__(self):
@@ -82,6 +84,8 @@ class SLTVACModel(nn.Module):
                                    conv_type=conv_type,
                                    use_bn=use_bn,
                                    num_classes=num_classes)
+        self.gloss_dict = gloss_dict
+        self.vocab_dict = vocab_dict
         # self.recognition = utils.Decode(gloss_dict, num_classes, 'beam')
         if encoder_type == "BiLSTM":
             self.temporal_model = BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
@@ -115,6 +119,72 @@ class SLTVACModel(nn.Module):
                        for idx, lgt in enumerate(len_x)])
         return x
 
+    def encode(self, x, len_x):
+        """Encode phase output"""
+        if len(x.shape) == 5:
+            # videos
+            batch, temp, channel, height, width = x.shape
+            inputs = x.reshape(batch * temp, channel, height, width)
+            framewise = self.masked_bn(inputs, len_x)
+            framewise = framewise.reshape(batch, temp, -1).transpose(1, 2)
+        else:
+            # frame-wise features
+            framewise = x
+
+        conv1d_outputs = self.conv1d(framewise, len_x)
+        # x: T, B, C
+        x = conv1d_outputs['visual_feat']
+        lgt = conv1d_outputs['feat_len']
+
+        # Encoder
+        src_mask = self.device.data_to_device(make_src_mask(lgt))
+
+        if type(self.temporal_model) is BiLSTM:
+            tm_outputs = self.temporal_model(x, lgt)
+        else:            
+            tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, src_mask)[0], 0, 1)
+        
+        outputs = self.classifier(tm_outputs)
+
+        return {
+            "framewise_features": framewise,
+            "visual_features": x,
+            "feat_len": lgt,
+            "conv_logits": conv1d_outputs['conv_logits'],
+            "sequence_logits": outputs,
+            "src_mask": src_mask,
+            "encoder_output":tm_outputs.transpose(0, 1)
+        }
+
+    def decode(self, encoder_output, src_mask, beam_size, beam_alpha):
+        if beam_size > 1:
+            sentence = beam_search(
+                decoder=self.decoder,
+                size=beam_size,
+                bos_index=BOS_ID,
+                eos_index=EOS_ID,
+                pad_index=PAD_ID,
+                encoder_output=encoder_output,
+                encoder_hidden=None,
+                src_mask=src_mask,
+                max_output_length=512,
+                alpha=beam_alpha,
+                embed=self.embedding
+            )
+        else:
+            sentence = transformer_greedy(
+                decoder=self.decoder,
+                bos_index=BOS_ID,
+                eos_index=EOS_ID,
+                encoder_output=encoder_output,
+                encoder_hidden=None,
+                src_mask=src_mask,
+                max_output_length=512,      
+                embed=self.embedding                         
+            )
+        
+        return sentence
+        
     def forward(self, x, len_x, sentence, sentence_len):
         if len(x.shape) == 5:
             # videos
@@ -132,11 +202,12 @@ class SLTVACModel(nn.Module):
         lgt = conv1d_outputs['feat_len']
 
         # Encoder
+        src_mask = self.device.data_to_device(make_src_mask(lgt))
 
         if type(self.temporal_model) is BiLSTM:
             tm_outputs = self.temporal_model(x, lgt)
         else:
-            src_mask = self.device.data_to_device(make_src_mask(lgt))
+            
             tm_outputs = torch.transpose(self.temporal_model(torch.transpose(x, 0, 1), None, src_mask)[0], 0, 1)
 
         outputs = self.classifier(tm_outputs)
@@ -171,24 +242,6 @@ class SLTVACModel(nn.Module):
         self.loss['translation'] = torch.nn.CrossEntropyLoss(ignore_index=PAD_ID)
         return self.loss
 
-    def criterion_calculation(self, ret_dict, label, label_lgt):
-        loss = 0
-        for k, weight in self.loss_weights.items():
-            if k == 'ConvCTC':
-                loss += weight * self.loss['CTCLoss'](ret_dict["conv_logits"].log_softmax(-1),
-                                                      label.cpu().int(), ret_dict["feat_len"].cpu().int(),
-                                                      label_lgt.cpu().int()).mean()
-            elif k == 'SeqCTC':
-                loss += weight * self.loss['CTCLoss'](ret_dict["sequence_logits"].log_softmax(-1),
-                                                      label.cpu().int(), ret_dict["feat_len"].cpu().int(),
-                                                      label_lgt.cpu().int()).mean()
-            elif k == 'Dist':
-                loss += weight * self.loss['distillation'](ret_dict["conv_logits"],
-                                                           ret_dict["sequence_logits"].detach(),
-                                                           use_blank=False)
-        return loss
-
-
     def loss_calculation(self, ret_dict, label, label_lgt, translation):
         """
         Calculate the loss for SLTVAC model.
@@ -214,18 +267,40 @@ class SLTVACModel(nn.Module):
 
         return loss
 
-    def output_inference(self, ret_dict):
-        new_ret_dict = ret_dict
+    def output_inference(
+        self,
+        do_recognition=True,
+        recognition_beam_width=1,
+        do_translation=True,
+        translation_beam_width=1,
+        translation_beam_alpha=1,
+        encoder_output=None,
+        encoder_lgt=None,
+        src_mask=None,
+    ):
 
-
-        pred = self.decoder.decode(ret_dict["sequence_logits"], ret_dict["feat_len"], batch_first=False, probs=False)
-        conv_pred = self.decoder.decode(ret_dict["conv_logit"], ret_dict["feat_len"], batch_first=False, probs=False)
-
-        new_ret_dict["conv_sents"] = conv_pred
-        new_ret_dict["recognized_sents"] = pred
-
-        return new_ret_dict
+        if do_recognition:
+            if recognition_beam_width > 1:
+                recognition = utils.Decode(self.gloss_dict, self.num_classes, 'beam', beam_width=recognition_beam_width)
+            else:
+                recognition = utils.Decode(self.gloss_dict, self.num_classes, 'max')
+            temporal_gloss = recognition.decode(encoder_output, encoder_lgt, batch_first=False, probs=False)
+            conv_gloss = recognition.decode(encoder_output, encoder_lgt, batch_first=False, probs=False)
+        else:
+            temporal_gloss, conv_gloss = None, None
+        if do_translation:
+            translation = self.decode(encoder_output, src_mask, translation_beam_width, translation_beam_alpha)
+            tokenized_translation = arrays_to_sentences(self.vocab_dict, translation)
+        else:
+            tokenized_translation = None
         
+        ret_dict = dict()
+        ret_dict["recognized_sents"] = temporal_gloss
+        ret_dict['conv_sents'] = conv_gloss
+        ret_dict['translations'] = tokenized_translation
+        return ret_dict
+        
+
 
 def subsequent_mask(size: int):
     """

@@ -19,7 +19,7 @@ from collections import OrderedDict
 
 faulthandler.enable()
 import utils
-from seq_scripts import seq_train, seq_eval, seq_feature_generation
+from seq_scripts import seq_train, seq_eval, seq_test, seq_feature_generation
 
 
 class Processor():
@@ -39,26 +39,36 @@ class Processor():
         self.arg.model_args['num_classes'] = len(self.gloss_dict) + 1
         self.arg.model_args['vocab_num_classes'] = len(self.vocab_dict)
         self.model, self.optimizer = self.loading()
+        self.do_recognition = arg.loss_weights["recognition_loss_weight"] > 0.0
+        self.do_translation = arg.loss_weights["translation_loss_weight"] > 0.0
 
     def start(self):
         if self.arg.phase == 'train':
             self.recorder.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
             seq_model_list = []
+            loss_dict = {}
+            metrics_dict = {}
             for epoch in range(self.arg.optimizer_args['start_epoch'], self.arg.num_epoch):
                 save_model = epoch % self.arg.save_interval == 0
                 eval_model = epoch % self.arg.eval_interval == 0
                 # train end2end model
-                seq_train(self.data_loader['train'], self.model, self.optimizer,
+                loss = seq_train(self.data_loader['train'], self.model, self.optimizer,
                           self.device, epoch, self.recorder)
+                loss_dict[epoch] = loss
                 if eval_model:
-                    dev_wer = seq_eval(self.arg, self.data_loader['dev'], self.model, self.device,
-                                       'dev', epoch, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
-                    self.recorder.print_log("Dev WER: {:05.2f}%".format(dev_wer))
+                    metrics = seq_eval(cfg=self.arg, loader=self.data_loader['dev'], model=self.model, device=self.device,
+                                    recorder=self.recorder, do_recognition=self.do_recognition, do_translation=self.do_translation)
+                    metrics_dict[epoch] = metrics
                 if save_model:
-                    model_path = "{}dev_{:05.2f}_epoch{}_model.pt".format(self.arg.work_dir, dev_wer, epoch)
+                    model_path = "{}dev_epoch{}_model.pt".format(self.arg.work_dir, epoch)
                     seq_model_list.append(model_path)
                     print("seq_model_list", seq_model_list)
                     self.save_model(epoch, model_path)
+            
+            # save figures for visualization
+            # TO DO
+            np.save(f"./{self.arg.work_dir}loss_dict.npy", loss_dict)
+            np.save(f"./{self.arg.work_dir}metrics_dict.npy", metrics_dict)
         elif self.arg.phase == 'test':
             if self.arg.load_weights is None and self.arg.load_checkpoints is None:
                 raise ValueError('Please appoint --load-weights.')
@@ -66,10 +76,13 @@ class Processor():
             self.recorder.print_log('Weights: {}.'.format(self.arg.load_weights))
             # train_wer = seq_eval(self.arg, self.data_loader["train_eval"], self.model, self.device,
             #                      "train", 6667, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
-            dev_wer = seq_eval(self.arg, self.data_loader["dev"], self.model, self.device,
-                               "dev", 6667, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
-            test_wer = seq_eval(self.arg, self.data_loader["test"], self.model, self.device,
-                                "test", 6667, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
+            # dev_wer = seq_eval(self.arg, self.data_loader["dev"], self.model, self.device,
+            #                    "dev", 6667, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
+            # test_wer = seq_eval(self.arg, self.data_loader["test"], self.model, self.device,
+            #                     "test", 6667, self.arg.work_dir, self.recorder, self.arg.evaluate_tool)
+            seq_test(cfg=self.arg, dev_loader=self.data_loader['dev'], test_loader=self.data_loader['test'], model=self.model,
+            device=self.device, output_path=self.arg.work_dir, recorder=self.recorder, do_recognition=self.do_recognition,
+            do_translation=self.do_translation)
             self.recorder.print_log('Evaluation Done.\n')
         elif self.arg.phase == "features":
             for mode in ["train", "dev", "test"]:

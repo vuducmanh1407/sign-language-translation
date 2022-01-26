@@ -224,7 +224,42 @@ def wer_calculation(gt_path, primary_pred, auxiliary_pred=None):
     return results['wer_lstm'] / results['cnt'] * 100
 
 
+def list_wer_calculation(fileids, gts, main_preds, aux_preds=None):
+    assert len(gts) == len(main_preds)
+    results_list = []
+    if aux_preds is None:
+        for idx in len(gts):
+            sent_stat = sent_evaluation(
+                info=fileids[idx], gt=gts[idx],
+                merge_same=True,
+                lstm_prediction=main_preds[idx],
+                conv_prediction=aux_preds[idx],
+                penalty={'ins': 1, 'del': 1, 'sub': 1},
+            )
+            results_list.append(sent_stat)
+    else:
+        for idx in len(gts):
+            sent_stat = sent_evaluation(
+                info=fileids[idx], gt=gts[idx],
+                merge_same=True,
+                lstm_prediction=main_preds[idx],
+                conv_prediction=aux_preds[idx],
+                penalty={'ins': 1, 'del': 1, 'sub': 1},
+            )
+            results_list.append(sent_stat)
+    results = sum_dict(results_list)
+
+    return results
 if __name__ == '__main__':
-    wer_calculation('phoenix2014-groundtruth-dev.stm',
-                    'out.output-hypothesis-dev.ctm')
-    #                     'out.output-hypothesis-dev-conv.ctm')
+    # wer_calculation('phoenix2014-groundtruth-dev.stm',
+    #                 'out.output-hypothesis-dev.ctm')
+    # #                     'out.output-hypothesis-dev-conv.ctm')
+
+    sent_stat = sent_evaluation(
+        gt=['i', 'play', 'a', 'game'],
+        merge_same=True,
+        lstm_prediction=['i', 'play', 'a', 'game'],
+        conv_prediction=['he', 'play', 'that', 'game', 'for', 'fun'],
+        penalty={'ins': 1, 'del': 1, 'sub': 1},
+    )
+    print(sent_stat)
