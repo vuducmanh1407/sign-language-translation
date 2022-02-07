@@ -119,6 +119,7 @@ class Processor():
             **self.arg.model_args,
             gloss_dict=self.gloss_dict,
             vocab_dict=self.vocab_dict,
+            vocab_dict_reverse=self.vocab_dict_reverse,
             encoder_arg=self.arg.encoder,
             decoder_arg=self.arg.decoder,
             loss_weights=self.arg.loss_weights,

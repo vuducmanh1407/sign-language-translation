@@ -45,7 +45,7 @@ class Decode(object):
             first_result = beam_result[batch_idx][0][:out_seq_len[batch_idx][0]]
             if len(first_result) != 0:
                 first_result = torch.stack([x[0] for x in groupby(first_result)])
-            ret_list.append([(self.i2g_dict[int(gloss_id)], idx) for idx, gloss_id in
+            ret_list.append([self.i2g_dict[int(gloss_id)] for _, gloss_id in
                              enumerate(first_result)])
         return ret_list
 
@@ -61,6 +61,6 @@ class Decode(object):
                 max_result = [x[0] for x in groupby(max_result)]
             else:
                 max_result = filtered
-            ret_list.append([(self.i2g_dict[int(gloss_id)], idx) for idx, gloss_id in
+            ret_list.append([self.i2g_dict[int(gloss_id)] for _, gloss_id in
                              enumerate(max_result)])
         return ret_list

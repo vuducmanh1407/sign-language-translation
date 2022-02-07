@@ -230,3 +230,6 @@ def get_alignment(r, h, d):
         alignlist[::-1],
         {"align_ref": align_ref, "align_hyp": align_hyp, "alignment": alignment},
     )
+
+
+    

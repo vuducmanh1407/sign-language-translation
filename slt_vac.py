@@ -39,6 +39,7 @@ class SLTVACModel(nn.Module):
         hidden_size=512,
         gloss_dict=None,
         vocab_dict=None,
+        vocab_dict_reverse=None,
         encoder_arg=None,
         decoder_arg=None,
         loss_weights=None,
@@ -87,6 +88,7 @@ class SLTVACModel(nn.Module):
                                    num_classes=num_classes)
         self.gloss_dict = gloss_dict
         self.vocab_dict = vocab_dict
+        self.vocab_dict_reverse = vocab_dict_reverse
         # self.recognition = utils.Decode(gloss_dict, num_classes, 'beam')
         if encoder_type == "BiLSTM":
             self.temporal_model = BiLSTMLayer(rnn_type='LSTM', input_size=hidden_size, hidden_size=hidden_size,
@@ -160,7 +162,7 @@ class SLTVACModel(nn.Module):
     def decode(self, encoder_output, src_mask, beam_size, beam_alpha):
         if beam_size > 1:
             sentence = beam_search(
-                decoder=self.decoder,
+                decoder=self.decoder_module,
                 size=beam_size,
                 bos_index=BOS_ID,
                 eos_index=EOS_ID,
@@ -174,7 +176,7 @@ class SLTVACModel(nn.Module):
             )
         else:
             sentence = transformer_greedy(
-                decoder=self.decoder,
+                decoder=self.decoder_module,
                 bos_index=BOS_ID,
                 eos_index=EOS_ID,
                 encoder_output=encoder_output,
@@ -292,8 +294,8 @@ class SLTVACModel(nn.Module):
         else:
             temporal_gloss, conv_gloss = None, None
         if do_translation:
-            translation = self.decode(encoder_output, src_mask, translation_beam_width, translation_beam_alpha)
-            tokenized_translation = arrays_to_sentences(self.vocab_dict, translation)
+            translation, _ = self.decode(encoder_output, src_mask, translation_beam_width, translation_beam_alpha)
+            tokenized_translation = arrays_to_sentences(vocab_dict=self.vocab_dict_reverse, arrays=translation)
         else:
             tokenized_translation = None
         
