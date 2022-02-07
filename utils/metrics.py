@@ -17,9 +17,9 @@ def metrics_calculation(total_sent, total_conv_sent, total_translation, total_in
         conv_gls_wer_score = wer_list(hypotheses=[" ".join(sent) for sent in total_conv_sent], references=[info[-2] for info in total_info])   
 
     if total_translation is not None:
-        txt_bleu = bleu(references=[info[-1] for info in total_info], hypotheses=total_translation)
-        txt_chrf = chrf(references=[info[-1] for info in total_info], hypotheses=total_translation)
-        txt_rouge = rouge(references=[info[-1] for info in total_info], hypotheses=total_translation)
+        txt_bleu = bleu(references=[info[-1] for info in total_info], hypotheses=[" ".join(t) for t in total_translation])
+        txt_chrf = chrf(references=[info[-1] for info in total_info], hypotheses=[" ".join(t) for t in total_translation])
+        txt_rouge = rouge(references=[info[-1] for info in total_info], hypotheses=[" ".join(t) for t in total_translation])
 
     valid_scores = {}
     if total_sent is not None:
