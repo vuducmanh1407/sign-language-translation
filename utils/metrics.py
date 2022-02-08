@@ -10,7 +10,7 @@ def metrics_calculation(total_sent, total_conv_sent, total_translation, total_in
     """
 
     if total_sent is not None:
-        # wer_stat = list_wer_calculation([info[0] for info in total_info], [info[-2].split(" ") for info in total_info], total_sent, total_conv_sent)    
+        wer_stat = list_wer_calculation([info[0] for info in total_info], [info[-2].split(" ") for info in total_info], total_sent, total_conv_sent)    
         gls_wer_score = wer_list(hypotheses=[" ".join(sent) for sent in total_sent], references=[info[-2] for info in total_info])
     
     if total_conv_sent is not None:
@@ -23,7 +23,7 @@ def metrics_calculation(total_sent, total_conv_sent, total_translation, total_in
 
     valid_scores = {}
     if total_sent is not None:
-        # valid_scores["wer_stat"] = wer_stat
+        valid_scores["wer_stat"] = wer_stat
         valid_scores["wer"] = gls_wer_score["wer"]
         valid_scores["wer_scores"] = gls_wer_score
     elif total_sent is None and total_conv_sent is not None:

@@ -132,8 +132,6 @@ def get_wer_delsubins(ref, hyp, merge_same=False, align_results=False,
             else:
                 results.append(op + ' ' * (len(aligned_gt[-1]) - 1))
     
-    print(aligned_gt)
-    print(aligned_pred)
     return aligned_gt, aligned_pred
 
 

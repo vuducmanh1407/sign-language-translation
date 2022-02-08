@@ -82,44 +82,53 @@ def seq_eval(cfg, loader, model, device, epoch, recorder, do_recognition=True, d
         total_translation.extend(output_ret_dict['translations'])
 
     metrics = metrics_calculation(total_sent=total_gloss, total_conv_sent=conv_gloss, total_translation=total_translation, total_info=total_info)
-    
+
     recorder.print_log(
-        "Epoch: %i\n"
-        "WER %3.2f\t(DEL: %3.2f,\tINS: %3.2f,\tSUB: %3.2f)\n\t"
-        "BLEU-4 %.2f\t(BLEU-1: %.2f,\tBLEU-2: %.2f,\tBLEU-3: %.2f,\tBLEU-4: %.2f)\n\t"
-        "CHRF %.2f\t"
-        "ROUGE %.2f",
-        epoch,
-        metrics["wer"] if do_recognition else -1,
-        metrics["wer_scores"]["del_rate"]
-        if do_recognition
-        else -1,
-        metrics["wer_scores"]["ins_rate"]
-        if do_recognition
-        else -1,
-        metrics["wer_scores"]["sub_rate"]
-        if do_recognition
-        else -1,
-        metrics["bleu"] if do_translation else -1,
-        metrics["bleu_scores"]["bleu1"]
-        if do_translation
-        else -1,
-        metrics["bleu_scores"]["bleu2"]
-        if do_translation
-        else -1,
-        metrics["bleu_scores"]["bleu3"]
-        if do_translation
-        else -1,
-        metrics["bleu_scores"]["bleu4"]
+        "Epoch: {}\n"
+        "WER {:3.2f}\t(DEL: {:3.2f},\tINS: {:3.2f},\tSUB: {:3.2f})\n\t"
+        "BLEU-4 {:.2f}\t(BLEU-1: {:.2f},\tBLEU-2: {:.2f},\tBLEU-3: {:.2f},\tBLEU-4: {:.2f})\n\t"
+        "CHRF {:.2f}\t"
+        "ROUGE {:.2f}".format(
+            epoch,
+            metrics["wer"] if do_recognition else -1,
+            metrics["wer_scores"]["del_rate"]
+            if do_recognition
+            else -1,
+            metrics["wer_scores"]["ins_rate"]
+            if do_recognition
+            else -1,
+            metrics["wer_scores"]["sub_rate"]
+            if do_recognition
+            else -1,
+            metrics["bleu"] if do_translation else -1,
+            metrics["bleu_scores"]["bleu1"]
+            if do_translation
+            else -1,
+            metrics["bleu_scores"]["bleu2"]
+            if do_translation
+            else -1,
+            metrics["bleu_scores"]["bleu3"]
+            if do_translation
+            else -1,
+            metrics["bleu_scores"]["bleu4"]
+            if do_translation
+            else -1,
+            metrics["chrf"]
+            if do_translation
+            else -1,
+            metrics["rouge"]
+            if do_translation
+            else -1
         )
+    )
 
     return metrics
 
 def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder, do_recognition=True, do_translation=True):
 
-    recognition_beam_sizes = cfg["testing"].get("recognition_beam_sizes", [1])
-    translation_beam_sizes = cfg["testing"].get("translation_beam_sizes", [1])
-    translation_beam_alphas = cfg["testing"].get("translation_beam_alphas", [-1])
+    recognition_beam_sizes = cfg.testing.get("recognition_beam_sizes", [1])
+    translation_beam_sizes = cfg.testing.get("translation_beam_sizes", [1])
+    translation_beam_alphas = cfg.testing.get("translation_beam_alphas", [-1])
 
     model.eval()
 
@@ -160,14 +169,14 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
     dev_best_conv_gloss = []
     dev_best_total_translation = []
 
-    if do_recognition:
-        dev_recognition_results = dict()
-        dev_best_wer_score = float("inf")
-        dev_best_recognition_beam_size = 1
-        dev_best_recognition_result = None
 
+    dev_recognition_results = dict()
+    dev_best_wer_score = float("inf")
+    dev_best_recognition_beam_size = 1
+    dev_best_recognition_result = None
+    if do_recognition:
         for rbw in recognition_beam_sizes:
-            recorder.print_log("[DEV] Partition [RECOGNITION] experiment [BW]: %d", rbw)
+            recorder.print_log("[DEV] Partition [RECOGNITION] experiment [BW]: {:d}".format(rbw))
             total_sent = []
             total_conv_sent = []
             for idx, ret_dict in enumerate(dev_encoder_ret_dicts):
@@ -179,6 +188,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
                     translation_beam_alpha=1,
                     encoder_output=ret_dict["encoder_output"],
                     encoder_lgt=ret_dict["feat_len"],
+                    conv_logits=ret_dict["conv_logits"],
                     src_mask=ret_dict["src_mask"],
                 )
 
@@ -194,31 +204,30 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
                 dev_best_recognition_result = dev_recognition_results[rbw]
                 dev_best_total_gloss = total_sent
                 dev_best_conv_gloss = total_conv_sent              
-                recorder.print_log("*" * 60)
+
                 recorder.print_log(
                     "[DEV] partition [RECOGNITION] results:\n\t"
-                    "New Best CTC Decode Beam Size: %d\n\t"
-                    "WER %3.2f\t(DEL: %3.2f,\tINS: %3.2f,\tSUB: %3.2f)",
-                    dev_best_recognition_beam_size,
-                    dev_best_recognition_result["wer"],
-                    dev_best_recognition_result["wer_scores"][
-                        "del_rate"
-                    ],
-                    dev_best_recognition_result["wer_scores"][
-                        "ins_rate"
-                    ],
-                    dev_best_recognition_result["wer_scores"][
-                        "sub_rate"
-                    ],
+                    "New Best CTC Decode Beam Size: {:d}\n\t"
+                    "WER {:3.2f}\t(DEL: {:3.2f},\tINS: {:3.2f},\tSUB: {:3.2f})".format(
+                        dev_best_recognition_beam_size,
+                        dev_best_recognition_beam_size,
+                        dev_best_recognition_result["wer_scores"][
+                            "del_rate"
+                        ],
+                        dev_best_recognition_result["wer_scores"][
+                            "ins_rate"
+                        ],
+                        dev_best_recognition_result["wer_scores"][
+                            "sub_rate"
+                        ]
+                    )
                 )
-                recorder.print_log("*" * 60)            
-
+       
+    dev_translation_results = {}
+    dev_best_bleu_score = float("-inf")
+    dev_best_translation_beam_size = 1
+    dev_best_translation_alpha = 1
     if do_translation:
-        recorder.print_log("=" * 60)
-        dev_translation_results = {}
-        dev_best_bleu_score = float("-inf")
-        dev_best_translation_beam_size = 1
-        dev_best_translation_alpha = 1
         for tbw in translation_beam_sizes:
             dev_translation_results[tbw] = {}
             for ta in translation_beam_alphas:
@@ -248,69 +257,70 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
                     dev_best_translation_result = dev_translation_results[tbw][ta]
                     dev_best_total_translation = total_translation
                     recorder.print_log(
-                        "[DEV] partition [Translation] results:\n\t"
-                        "New Best Translation Beam Size: %d and Alpha: %d\n\t"
-                        "BLEU-4 %.2f\t(BLEU-1: %.2f,\tBLEU-2: %.2f,\tBLEU-3: %.2f,\tBLEU-4: %.2f)\n\t"
-                        "CHRF %.2f\t"
-                        "ROUGE %.2f",
-                        dev_best_translation_beam_size,
-                        dev_best_translation_alpha,
-                        dev_best_translation_result["bleu"],
-                        dev_best_translation_result["bleu_scores"][
-                            "bleu1"
-                        ],
-                        dev_best_translation_result["bleu_scores"][
-                            "bleu2"
-                        ],
-                        dev_best_translation_result["bleu_scores"][
-                            "bleu3"
-                        ],
-                        dev_best_translation_result["bleu_scores"][
-                            "bleu4"
-                        ],
-                        dev_best_translation_result["chrf"],
-                        dev_best_translation_result["rouge"],
+                            "[DEV] partition [Translation] results:\n\t"
+                            "New Best Translation Beam Size: {:d} and Alpha: {:d}\n\t"
+                            "BLEU-4 {:.2f}\t(BLEU-1: {:.2f},\tBLEU-2: {:.2f},\tBLEU-3: {:.2f},\tBLEU-4: {:.2f})\n\t"
+                            "CHRF {:.2f}\t"
+                            "ROUGE {:.2f}".format(
+                            dev_best_translation_beam_size,
+                            dev_best_translation_alpha,
+                            dev_best_translation_result["bleu"],
+                            dev_best_translation_result["bleu_scores"][
+                                "bleu1"
+                            ],
+                            dev_best_translation_result["bleu_scores"][
+                                "bleu2"
+                            ],
+                            dev_best_translation_result["bleu_scores"][
+                                "bleu3"
+                            ],
+                            dev_best_translation_result["bleu_scores"][
+                                "bleu4"
+                            ],
+                            dev_best_translation_result["chrf"],
+                            dev_best_translation_result["rouge"],
+                        )
                     )
-                    recorder.print_log.info("-" * 60)
-    recorder.print_log("*" * 60)
+
+
     recorder.print_log(
         "[DEV] partition [Recognition & Translation] results:\n\t"
-        "Best CTC Decode Beam Size: %d\n\t"
-        "Best Translation Beam Size: %d and Alpha: %d\n\t"
-        "WER %3.2f\t(DEL: %3.2f,\tINS: %3.2f,\tSUB: %3.2f)\n\t"
-        "BLEU-4 %.2f\t(BLEU-1: %.2f,\tBLEU-2: %.2f,\tBLEU-3: %.2f,\tBLEU-4: %.2f)\n\t"
-        "CHRF %.2f\t"
-        "ROUGE %.2f",
-        dev_best_recognition_beam_size if do_recognition else -1,
-        dev_best_translation_beam_size if do_translation else -1,
-        dev_best_translation_alpha if do_translation else -1,
-        dev_best_recognition_result["wer"] if do_recognition else -1,
-        dev_best_recognition_result["wer_scores"]["del_rate"]
-        if do_recognition
-        else -1,
-        dev_best_recognition_result["wer_scores"]["ins_rate"]
-        if do_recognition
-        else -1,
-        dev_best_recognition_result["wer_scores"]["sub_rate"]
-        if do_recognition
-        else -1,
-        dev_best_translation_result["bleu"] if do_translation else -1,
-        dev_best_translation_result["bleu_scores"]["bleu1"]
-        if do_translation
-        else -1,
-        dev_best_translation_result["bleu_scores"]["bleu2"]
-        if do_translation
-        else -1,
-        dev_best_translation_result["bleu_scores"]["bleu3"]
-        if do_translation
-        else -1,
-        dev_best_translation_result["bleu_scores"]["bleu4"]
-        if do_translation
-        else -1,
-        dev_best_translation_result["chrf"] if do_translation else -1,
-        dev_best_translation_result["rouge"] if do_translation else -1,
+        "Best CTC Decode Beam Size: {:d}\n\t"
+        "Best Translation Beam Size: {:d} and Alpha: {:d}\n\t"
+        "WER {:3.2f}\t(DEL: {:3.2f},\tINS: {:3.2f},\tSUB: {:3.2f})\n\t"
+        "BLEU-4 {:.2f}\t(BLEU-1: {:.2f},\tBLEU-2: {:.2f},\tBLEU-3: {:.2f},\tBLEU-4: {:.2f})\n\t"
+        "CHRF {:.2f}\t"
+        "ROUGE {:.2f}".format(
+            dev_best_recognition_beam_size if do_recognition else -1,
+            dev_best_translation_beam_size if do_translation else -1,
+            dev_best_translation_alpha if do_translation else -1,
+            dev_best_recognition_result["wer"] if do_recognition else -1,
+            dev_best_recognition_result["wer_scores"]["del_rate"]
+            if do_recognition
+            else -1,
+            dev_best_recognition_result["wer_scores"]["ins_rate"]
+            if do_recognition
+            else -1,
+            dev_best_recognition_result["wer_scores"]["sub_rate"]
+            if do_recognition
+            else -1,
+            dev_best_translation_result["bleu"] if do_translation else -1,
+            dev_best_translation_result["bleu_scores"]["bleu1"]
+            if do_translation
+            else -1,
+            dev_best_translation_result["bleu_scores"]["bleu2"]
+            if do_translation
+            else -1,
+            dev_best_translation_result["bleu_scores"]["bleu3"]
+            if do_translation
+            else -1,
+            dev_best_translation_result["bleu_scores"]["bleu4"]
+            if do_translation
+            else -1,
+            dev_best_translation_result["chrf"] if do_translation else -1,
+            dev_best_translation_result["rouge"] if do_translation else -1,
+        )
     )
-    recorder.print_log("*" * 60)
 
     # Work with test set
     test_total_gloss = []
@@ -336,42 +346,43 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
 
     recorder.print_log(
         "[TEST] partition [Recognition & Translation] results:\n\t"
-        "Best CTC Decode Beam Size: %d\n\t"
-        "Best Translation Beam Size: %d and Alpha: %d\n\t"
-        "WER %3.2f\t(DEL: %3.2f,\tINS: %3.2f,\tSUB: %3.2f)\n\t"
-        "BLEU-4 %.2f\t(BLEU-1: %.2f,\tBLEU-2: %.2f,\tBLEU-3: %.2f,\tBLEU-4: %.2f)\n\t"
-        "CHRF %.2f\t"
-        "ROUGE %.2f",
-        dev_best_recognition_beam_size if do_recognition else -1,
-        dev_best_translation_beam_size if do_translation else -1,
-        dev_best_translation_alpha if do_translation else -1,
-        test_best_result["wer"] if do_recognition else -1,
-        test_best_result["wer_scores"]["del_rate"]
-        if do_recognition
-        else -1,
-        test_best_result["wer_scores"]["ins_rate"]
-        if do_recognition
-        else -1,
-        test_best_result["wer_scores"]["sub_rate"]
-        if do_recognition
-        else -1,
-        test_best_result["bleu"] if do_translation else -1,
-        test_best_result["bleu_scores"]["bleu1"]
-        if do_translation
-        else -1,
-        test_best_result["bleu_scores"]["bleu2"]
-        if do_translation
-        else -1,
-        test_best_result["bleu_scores"]["bleu3"]
-        if do_translation
-        else -1,
-        test_best_result["bleu_scores"]["bleu4"]
-        if do_translation
-        else -1,
-        test_best_result["chrf"] if do_translation else -1,
-        test_best_result["rouge"] if do_translation else -1,
+        "Best CTC Decode Beam Size: {:d}\n\t"
+        "Best Translation Beam Size: %d and Alpha: {:d}\n\t"
+        "WER {:3.2f}\t(DEL: {:3.2f},\tINS: {:3.2f},\tSUB: {:3.2f})\n\t"
+        "BLEU-4 {:.2f}\t(BLEU-1: {:.2f},\tBLEU-2: {:.2f},\tBLEU-3: {:.2f},\tBLEU-4: {:.2f})\n\t"
+        "CHRF {:.2f}\t"
+        "ROUGE {:.2f}".format(
+            dev_best_recognition_beam_size if do_recognition else -1,
+            dev_best_translation_beam_size if do_translation else -1,
+            dev_best_translation_alpha if do_translation else -1,
+            test_best_result["wer"] if do_recognition else -1,
+            test_best_result["wer_scores"]["del_rate"]
+            if do_recognition
+            else -1,
+            test_best_result["wer_scores"]["ins_rate"]
+            if do_recognition
+            else -1,
+            test_best_result["wer_scores"]["sub_rate"]
+            if do_recognition
+            else -1,
+            test_best_result["bleu"] if do_translation else -1,
+            test_best_result["bleu_scores"]["bleu1"]
+            if do_translation
+            else -1,
+            test_best_result["bleu_scores"]["bleu2"]
+            if do_translation
+            else -1,
+            test_best_result["bleu_scores"]["bleu3"]
+            if do_translation
+            else -1,
+            test_best_result["bleu_scores"]["bleu4"]
+            if do_translation
+            else -1,
+            test_best_result["chrf"] if do_translation else -1,
+            test_best_result["rouge"] if do_translation else -1,
+        )
     )
-    recorder.print_log("*" * 60)
+
 
     def _write_to_file(file_path: str, sequence_ids, hypotheses):
         with open(file_path, mode="w", encoding="utf-8") as out_file:

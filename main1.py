@@ -65,6 +65,7 @@ class Processor():
                     print("seq_model_list", seq_model_list)
                     self.save_model(epoch, model_path)
             
+            self.recorder.print_log("Training ended.")
             # save figures for visualization
             # TO DO
             np.save(f"./{self.arg.work_dir}loss_dict.npy", loss_dict)
@@ -236,7 +237,7 @@ if __name__ == '__main__':
     args = sparser.parse_args()
     with open(f"./configs/{args.dataset}.yaml", 'r') as f:
         args.dataset_info = yaml.load(f, Loader=yaml.FullLoader)
-    print(args)
+    # print(args)
     processor = Processor(args)
     # utils.pack_code("./", args.work_dir)
     processor.start()
