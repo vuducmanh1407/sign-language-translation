@@ -59,7 +59,8 @@ def seq_eval(cfg, loader, model, device, epoch, recorder, do_recognition=True, d
             encoder_ret_dicts.append(ret_dict)
 
         total_info += [file_name.split("|") for file_name in data[-1]] 
-
+    
+    # dev set evaluation
     total_gloss = []
     conv_gloss = []
     total_translation = []
