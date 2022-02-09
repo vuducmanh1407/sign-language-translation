@@ -232,6 +232,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
         for tbw in translation_beam_sizes:
             dev_translation_results[tbw] = {}
             for ta in translation_beam_alphas:
+                recorder.print_log("[DEV] Partition [TRANSLATION] experiment [BW]: {:d}, [alpha]: {:d}".format(tbw, ta))
                 total_translation = []
                 for idx, ret_dict in enumerate(dev_encoder_ret_dicts):
                     output_ret_dict = model.output_inference(
@@ -241,6 +242,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
                         translation_beam_width=tbw,
                         translation_beam_alpha=ta,
                         encoder_output=ret_dict["encoder_output"],
+                        conv_logits=ret_dict["conv_logits"],
                         encoder_lgt=ret_dict["feat_len"],
                         src_mask=ret_dict["src_mask"],
                     )
@@ -336,6 +338,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
             translation_beam_alpha=dev_best_translation_alpha,
             encoder_output=ret_dict["encoder_output"],
             encoder_lgt=ret_dict["feat_len"],
+            conv_logits=ret_dict["conv_logits"],
             src_mask=ret_dict["src_mask"],
         )
 
@@ -348,7 +351,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
     recorder.print_log(
         "[TEST] partition [Recognition & Translation] results:\n\t"
         "Best CTC Decode Beam Size: {:d}\n\t"
-        "Best Translation Beam Size: %d and Alpha: {:d}\n\t"
+        "Best Translation Beam Size: {:d} and Alpha: {:d}\n\t"
         "WER {:3.2f}\t(DEL: {:3.2f},\tINS: {:3.2f},\tSUB: {:3.2f})\n\t"
         "BLEU-4 {:.2f}\t(BLEU-1: {:.2f},\tBLEU-2: {:.2f},\tBLEU-3: {:.2f},\tBLEU-4: {:.2f})\n\t"
         "CHRF {:.2f}\t"
