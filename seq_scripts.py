@@ -223,7 +223,8 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
                         ]
                     )
                 )
-       
+            recorder.print_log("*" * 60)
+
     dev_translation_results = {}
     dev_best_bleu_score = float("-inf")
     dev_best_translation_beam_size = 1
@@ -284,6 +285,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
                             dev_best_translation_result["rouge"],
                         )
                     )
+                recorder.print_log("*" * 60)
 
 
     recorder.print_log(
@@ -327,7 +329,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
 
     # Work with test set
     test_total_gloss = []
-    test_total_conv_gloss = []
+    test_conv_gloss = []
     test_total_translation = []
     for idx, ret_dict in enumerate(test_encoder_ret_dicts):
         output_ret_dict = model.output_inference(
@@ -343,10 +345,10 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
         )
 
         test_total_gloss.extend(output_ret_dict["recognized_sents"])
-        test_total_conv_gloss.extend(output_ret_dict["conv_sents"])
+        test_conv_gloss.extend(output_ret_dict["conv_sents"])
         test_total_translation.extend(output_ret_dict['translations'])
 
-    test_best_result = metrics_calculation(total_sent=test_total_gloss, total_conv_sent=test_total_conv_gloss, total_translation=test_total_translation, total_info=test_total_info)
+    test_best_result = metrics_calculation(total_sent=test_total_gloss, total_conv_sent=test_conv_gloss, total_translation=test_total_translation, total_info=test_total_info)
 
     recorder.print_log(
         "[TEST] partition [Recognition & Translation] results:\n\t"
@@ -395,76 +397,76 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
 
     if output_path is not None:
         if do_recognition:
-            dev_total_gls_output_path_set = "{}.BW_{:03d}.{}.total.gls".format(
+            dev_total_gls_output_path_set = "{}BW_{:03d}.{}.total.gls".format(
                 output_path, dev_best_recognition_beam_size, "dev"
             )
             _write_to_file(
                 dev_total_gls_output_path_set,
                 [info[0] for info in dev_total_info],
-                dev_best_total_gloss,
+                [" ".join(x) for x in dev_best_total_gloss],
             )
 
-            dev_conv_gls_output_path_set = "{}.BW_{:03d}.{}.conv.gls".format(
+            dev_conv_gls_output_path_set = "{}BW_{:03d}.{}.conv.gls".format(
                 output_path, dev_best_recognition_beam_size, "dev"
             )
             _write_to_file(
                 dev_conv_gls_output_path_set,
                 [info[0] for info in dev_total_info],
-                dev_best_conv_gloss,
+                [" ".join(x) for x in dev_best_conv_gloss],
             )
 
-            test_total_gls_output_path_set = "{}.BW_{:03d}.{}.total.gls".format(
+            test_total_gls_output_path_set = "{}BW_{:03d}.{}.total.gls".format(
                 output_path, dev_best_recognition_beam_size, "test"
             )
             _write_to_file(
                 test_total_gls_output_path_set,
                 [info[0] for info in test_total_info],
-                test_total_gloss,
+                [" ".join(x) for x in test_total_gloss],
             )
 
-            test_conv_gls_output_path_set = "{}.BW_{:03d}.{}.conv.gls".format(
+            test_conv_gls_output_path_set = "{}BW_{:03d}.{}.conv.gls".format(
                 output_path, dev_best_recognition_beam_size, "test"
             )
             _write_to_file(
                 test_conv_gls_output_path_set,
                 [info[0] for info in test_total_info],
-                test_total_gloss,
+                [" ".join(x) for x in test_conv_gloss],
             )
 
         if do_translation:
             if dev_best_translation_beam_size > -1:
-                dev_txt_output_path_set = "{}.BW_{:02d}.A_{:1d}.{}.txt".format(
+                dev_txt_output_path_set = "{}BW_{:02d}.A_{:1d}.{}.txt".format(
                     output_path,
                     dev_best_translation_beam_size,
                     dev_best_translation_alpha,
                     "dev",
                 )
-                test_txt_output_path_set = "{}.BW_{:02d}.A_{:1d}.{}.txt".format(
+                test_txt_output_path_set = "{}BW_{:02d}.A_{:1d}.{}.txt".format(
                     output_path,
                     dev_best_translation_beam_size,
                     dev_best_translation_alpha,
                     "test",
                 )
             else:
-                dev_txt_output_path_set = "{}.BW_{:02d}.{}.txt".format(
+                dev_txt_output_path_set = "{}BW_{:02d}.{}.txt".format(
                     output_path, dev_best_translation_beam_size, "dev"
                 )
-                test_txt_output_path_set = "{}.BW_{:02d}.{}.txt".format(
+                test_txt_output_path_set = "{}BW_{:02d}.{}.txt".format(
                     output_path, dev_best_translation_beam_size, "test"
                 )
 
             _write_to_file(
                 dev_txt_output_path_set,
                 [info[0] for info in dev_total_info],
-                dev_best_total_translation,
+                [" ".join(x) for x in dev_best_total_translation],
             )
             _write_to_file(
                 test_txt_output_path_set,
                 [info[0] for info in test_total_info],
-                test_total_translation,
+                [" ".join(x) for x in test_total_translation],
             )
 
-        with open(output_path + ".dev_results.pkl", "wb") as out:
+        with open(output_path + "dev_results.pkl", "wb") as out:
             pickle.dump(
                 {
                     "recognition_results": dev_recognition_results
@@ -476,7 +478,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
                 },
                 out,
             )
-        with open(output_path + ".test_results.pkl", "wb") as out:
+        with open(output_path + "test_results.pkl", "wb") as out:
             pickle.dump(test_best_result, out)
     
 

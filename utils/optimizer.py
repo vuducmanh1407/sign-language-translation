@@ -35,7 +35,7 @@ class Optimizer(object):
 
     def define_lr_scheduler(self, optimizer, milestones):
         if self.optim_dict["optimizer"] in ['SGD', 'Adam']:
-            lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=0.2)
+            lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=0.2) # lr = gamma * lr
             return lr_scheduler
         else:
             raise ValueError()

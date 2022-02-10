@@ -10,6 +10,7 @@ import sys
 import cv2
 import yaml
 import torch
+import pickle as pickle
 import random
 import importlib
 import faulthandler
@@ -68,6 +69,10 @@ class Processor():
             self.recorder.print_log("Training ended.")
             # save figures for visualization
             # TO DO
+            with open(self.arg.work_dir + "loss_dict.pkl", "wb") as out:
+                pickle.dump(loss_dict, out)
+            with open(self.arg.work_dir + "metrics_dict.pkl", "wb") as out:
+                pickle.dump(metrics_dict, out)
             np.save(f"./{self.arg.work_dir}loss_dict.npy", loss_dict)
             np.save(f"./{self.arg.work_dir}metrics_dict.npy", metrics_dict)
         elif self.arg.phase == 'test':
