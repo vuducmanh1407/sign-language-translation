@@ -211,7 +211,7 @@ def seq_test(cfg, dev_loader, test_loader, model, device, output_path, recorder,
                     "New Best CTC Decode Beam Size: {:d}\n\t"
                     "WER {:3.2f}\t(DEL: {:3.2f},\tINS: {:3.2f},\tSUB: {:3.2f})".format(
                         dev_best_recognition_beam_size,
-                        dev_best_recognition_beam_size,
+                        dev_best_recognition_result["wer"],
                         dev_best_recognition_result["wer_scores"][
                             "del_rate"
                         ],
@@ -490,7 +490,7 @@ def seq_feature_generation(loader, model, device, mode, work_dir, recorder):
     src_path = os.path.abspath(f"{work_dir}{mode}")
     tgt_path = os.path.abspath(f"./features/{mode}")
     if not os.path.exists("./features/"):
-    	os.makedirs("./features/")
+        os.makedirs("./features/")
 
     if os.path.islink(tgt_path):
         curr_path = os.readlink(tgt_path)

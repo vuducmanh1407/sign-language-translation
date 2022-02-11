@@ -44,6 +44,10 @@ class Processor():
         self.do_translation = arg.loss_weights["translation_loss_weight"] > 0.0
 
     def start(self):
+        pytorch_total_params = sum(p.numel() for p in self.model.parameters())
+        pytorch_trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        self.recorder.print_log("Model total parameters: {}".format(pytorch_total_params))
+        self.recorder.print_log("Model trainable parameters: {}".format(pytorch_trainable_params))
         if self.arg.phase == 'train':
             self.recorder.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
             seq_model_list = []
@@ -67,8 +71,8 @@ class Processor():
                     self.save_model(epoch, model_path)
             
             self.recorder.print_log("Training ended.")
-            # save figures for visualization
-            # TO DO
+
+            # Save statistic figure for further visualization
             with open(self.arg.work_dir + "loss_dict.pkl", "wb") as out:
                 pickle.dump(loss_dict, out)
             with open(self.arg.work_dir + "metrics_dict.pkl", "wb") as out:
