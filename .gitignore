@@ -1,5 +1,6 @@
 dataset/annotations
 dataset/PHOENIX-2014-T-release-v3
+dataset/05July_2010_Monday_tagesschau-1205
 preprocess/phoenix2014t
 preprocess/phoenix2014
 work_dir/

@@ -8,6 +8,7 @@ cffi==1.13.2
 chardet==3.0.4
 cryptography==2.8
 cycler==0.10.0
+fasttext
 gast==0.2.2
 google-auth==1.10.2
 google-auth-oauthlib==0.4.1

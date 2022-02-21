@@ -9,6 +9,7 @@ import pdb
 import sys
 import cv2
 import yaml
+import glob
 import torch
 import pickle as pickle
 import random
@@ -21,7 +22,7 @@ from collections import OrderedDict
 faulthandler.enable()
 import utils
 from seq_scripts import seq_train, seq_eval, seq_test, seq_feature_generation
-
+from utils.image import load_input
 
 class Processor():
     def __init__(self, arg):
@@ -104,6 +105,35 @@ class Processor():
             if self.arg.load_weights is None and self.arg.load_checkpoints is None:
                 raise ValueError('Please appoint --load-weights.')
             # TODO: Build dataloader for 1 video
+            
+            if self.arg.type == "folder": # read folder
+                input_dict = load_input(self.arg.file_dir)
+            elif self.arg.type == "file":
+                pass
+
+            input_video = input_dict["resized image"]
+            input_video = self.device.data_to_device(input_video.unsqueeze(0))
+
+            input_length = self.device.data_to_device(torch.LongTensor([input_video.size[1]]))
+
+            # Feed into model
+            ret_dict = self.model.encode(input_video, input_length)
+            output_ret_dict = self.model.output_inference(
+                do_recognition=True,
+                recognition_beam_width=1,
+                do_translation=True,
+                translation_beam_width=1,
+                translation_beam_alpha=-1,
+                encoder_output=ret_dict["encoder_output"],
+                conv_logits=ret_dict["conv_logits"],
+                encoder_lgt=ret_dict["feat_len"],
+                src_mask=ret_dict["src_mask"],
+            )
+
+            if self.arg.activation_map == True:
+                activation_map = torch.linalg.norm(ret_dict["framewise_features"], dim=1).cpu().detach()
+            
+            print(output_ret_dict[""])
 
     def save_arg(self):
         arg_dict = vars(self.arg)
