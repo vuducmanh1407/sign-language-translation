@@ -17,6 +17,7 @@ import importlib
 import faulthandler
 import numpy as np
 import torch.nn as nn
+import cv2
 from collections import OrderedDict
 
 faulthandler.enable()
@@ -107,15 +108,14 @@ class Processor():
             # TODO: Build dataloader for 1 video
             
             if self.arg.type == "folder": # read folder
-                input_dict = load_input(self.arg.file_dir)
+                input_dict = load_input(self.arg.file_dir + "*", (256, 256))
             elif self.arg.type == "file":
                 pass
 
             input_video = input_dict["resized image"]
             input_video = self.device.data_to_device(input_video.unsqueeze(0))
-
-            input_length = self.device.data_to_device(torch.LongTensor([input_video.size[1]]))
-
+            
+            input_length = self.device.data_to_device(torch.LongTensor([input_video.size(1)]))
             # Feed into model
             ret_dict = self.model.encode(input_video, input_length)
             output_ret_dict = self.model.output_inference(
@@ -131,9 +131,19 @@ class Processor():
             )
 
             if self.arg.activation_map == True:
-                activation_map = torch.linalg.norm(ret_dict["framewise_features"], dim=1).cpu().detach()
-            
-            print(output_ret_dict[""])
+                activation_map = torch.linalg.norm(ret_dict["feature_maps"], dim=1).cpu().detach().numpy()
+                l = activation_map.shape[0]
+                activation_map = [activation_map[i,:,:] for i in range(l)]
+                activation_map = [(activation_map[i] - np.min(activation_map[i]))/(np.max(activation_map[i])) for i in range(l)]  
+                activation_map = [np.uint8(255 * activation_map[i]) for i in range(l)]
+                original_resolution = input_dict["original_image_list"][0].shape[:2]
+                activation_map = [cv2.resize(activation_map[i], original_resolution[::-1], interpolation=cv2.INTER_AREA) for i in range(l)]
+                heatmap = [cv2.applyColorMap(activation_map[i], cv2.COLORMAP_JET) for i in range(l)]            
+                img_list = [0.5*input_dict["original_image_list"][i] + 0.3*heatmap[i] for i in range(l)]
+            else:
+                img_list = input_dict["original_image_list"]
+
+            cv2.imshow("test", img_list[0])
 
     def save_arg(self):
         arg_dict = vars(self.arg)

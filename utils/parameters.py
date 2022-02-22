@@ -147,6 +147,23 @@ def get_parser():
         type=int,
         default=80,
         help='stop training in which epoch')
+
+    parser.add_argument(
+        '--activation-map',
+        type=str2bool,
+        default=False,
+        help='use activation map while inference or not')
+
+    parser.add_argument(
+        '--type',
+        default="folder",
+        help='inference type of video')
+
+    parser.add_argument(
+        '--file-dir',
+        default="./",
+        help='video directory')
+
     return parser
 
 

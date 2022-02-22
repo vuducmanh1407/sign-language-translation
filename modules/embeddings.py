@@ -30,7 +30,10 @@ class WordEmbedding(nn.Module):
         tensor = torch.Tensor(tensor)
         tensor = self.device.data_to_device(tensor)
         tensor = self.linear(tensor).transpose(1,2)
-        tensor = self.batchnorm(tensor).transpose(1,2)
+        if tensor.size(0) > 1:
+          tensor = self.batchnorm(tensor).transpose(1,2)
+        else:
+          tensor = tensor.transpose(1,2)
         tensor = self.activation(tensor)
         return tensor
 

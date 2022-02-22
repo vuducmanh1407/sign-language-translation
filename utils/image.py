@@ -28,8 +28,8 @@ def load_input(path, resolution):
     norm_video = normalize_and_to_tensor(resized_img_list)
 
     return {
-        "original image list": img_list,
-        "resized image": norm_video
+        "original_image_list": img_list,
+        "resized_image": norm_video
     }
 
 

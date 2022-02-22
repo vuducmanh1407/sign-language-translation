@@ -116,11 +116,12 @@ class SLTVACModel(nn.Module):
         def pad(tensor, length):
             return torch.cat([tensor, tensor.new(length - tensor.size(0), *tensor.size()[1:]).zero_()])
 
-        x = torch.cat([inputs[len_x[0] * idx:len_x[0] * idx + lgt] for idx, lgt in enumerate(len_x)])      
+        x = torch.cat([inputs[len_x[0] * idx:len_x[0] * idx + lgt] for idx, lgt in enumerate(len_x)])  
+        feature_maps = self.get_feature_maps(x)            
         x = self.conv2d(x)
         x = torch.cat([pad(x[sum(len_x[:idx]):sum(len_x[:idx + 1])], len_x[0])
                        for idx, lgt in enumerate(len_x)])
-        return x
+        return x, feature_maps
 
     def encode(self, x, len_x):
         """Encode phase output"""
@@ -128,7 +129,7 @@ class SLTVACModel(nn.Module):
             # videos
             batch, temp, channel, height, width = x.shape
             inputs = x.reshape(batch * temp, channel, height, width)
-            framewise = self.masked_bn(inputs, len_x)
+            framewise, feature_maps = self.masked_bn(inputs, len_x)
             framewise = framewise.reshape(batch, temp, -1).transpose(1, 2)
         else:
             # frame-wise features
@@ -151,6 +152,7 @@ class SLTVACModel(nn.Module):
 
         return {
             "framewise_features": framewise,
+            "feature_maps": feature_maps,
             "visual_features": x,
             "feat_len": lgt,
             "conv_logits": conv1d_outputs['conv_logits'],
@@ -193,7 +195,7 @@ class SLTVACModel(nn.Module):
             # videos
             batch, temp, channel, height, width = x.shape
             inputs = x.reshape(batch * temp, channel, height, width)
-            framewise = self.masked_bn(inputs, len_x)
+            framewise, feature_maps = self.masked_bn(inputs, len_x)
             framewise = framewise.reshape(batch, temp, -1).transpose(1, 2)
         else:
             # frame-wise features
@@ -231,6 +233,7 @@ class SLTVACModel(nn.Module):
         #     else self.recognition.decode(conv1d_outputs['conv_logits'], lgt, batch_first=False, probs=False)
 
         return {
+            "feature_maps": feature_maps,
             "framewise_features": framewise,
             "visual_features": x,
             "feat_len": lgt,
@@ -306,6 +309,10 @@ class SLTVACModel(nn.Module):
         return ret_dict
         
 
+    def get_feature_maps(self, x):
+        feature_map_model = torch.nn.Sequential(*list(self.conv2d.children())[:-2])
+        feature_maps =feature_map_model(x)
+        return feature_maps
 
 def subsequent_mask(size: int):
     """

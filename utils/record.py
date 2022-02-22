@@ -1,13 +1,14 @@
 import pdb
 import time
-
+from datetime import datetime
 
 class Recorder(object):
     def __init__(self, work_dir, print_log, log_interval):
         self.cur_time = time.time()
         self.print_log_flag = print_log
         self.log_interval = log_interval
-        self.log_path = '{}/log.txt'.format(work_dir)
+        self.startdate = datetime.today().strftime('%Y%m%d')
+        self.log_path = '{}/{}_log.txt'.format(work_dir, self.startdate)
         self.timer = dict(dataloader=0.001, device=0.001, forward=0.001, backward=0.001)
 
     def print_time(self):
